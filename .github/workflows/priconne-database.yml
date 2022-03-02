@@ -1,0 +1,80 @@
+# This workflow will auto download a database and push any changes if found
+
+name: priconne-database
+
+on:
+  # run this task every minute 45 of every hr of every day
+  # preload usually happens at minute 45? but actions fires 5mins later
+  schedule:
+  - cron: '45 * * * *'
+
+  # allow this task to be run manually from Actions tab
+  workflow_dispatch:
+
+jobs:
+  # needs access to {{ secrets.DEPLOY_ACCESS_TOKEN }} with at least public_repo scope
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js [16.x]
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            **/node_modules
+          key: ${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Node.js dependencies
+        run: npm install @actions/core brotli python-shell
+
+      - name: Run check-for-updates.js
+        id: check_for_updates
+        run: node ./src/check-for-updates.js
+
+      - name: Setup Python [3.x]
+        if: ${{ steps.check_for_updates.outputs.success }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      # btw for some reason installing UnityPack here causes issues
+      # it's kind of a pain to debug sooooo UnityPack is provided in vendor/UnityPack
+
+      - name: Install Python dependencies
+        if: ${{ steps.check_for_updates.outputs.success }}
+        run: pip install lz4
+
+      - name: Run download-database.js
+        if: ${{ steps.check_for_updates.outputs.success }}
+        id: download_database
+        run: node ./src/download-database.js
+
+      # assuming there are new changes
+      - name: Update files on Git
+        if: ${{ steps.check_for_updates.outputs.success }}
+        run: |
+          git config user.name $user_name
+          git config user.email $user_email
+          git add ./master_cn.db
+          git add ./master_en.db
+          git add ./master_jp.db
+          git add ./master_kr.db
+          git add ./master_tw.db
+          git commit -m "[Bot] Database Updates - ${{ steps.download_database.outputs.title }}" -m '
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          This is an automated process. Issues may or may not have occured.
+          ${{ steps.download_database.outputs.diff }}'
+          git push
+        env:
+          user_name: 'Expugn'
+          user_email: 'expugn@users.noreply.github.com'
+          github_token: ${{ secrets.DEPLOY_ACCESS_TOKEN }}
+          repository: ${{ github.repository }}

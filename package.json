@@ -1,0 +1,13 @@
+{
+  "name": "priconne-database",
+  "version": "1.0.0",
+  "description": "Serves the master.db from multiple regions.",
+  "author": "S'pugn",
+  "scripts": {},
+  "keywords": [],
+  "dependencies": {
+    "@actions/core": "^1.6.0",
+    "brotli": "^1.3.2",
+    "python-shell": "^3.0.1"
+  }
+}
