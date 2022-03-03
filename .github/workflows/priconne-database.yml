@@ -61,8 +61,8 @@ jobs:
       - name: Update files on Git
         if: ${{ steps.check_for_updates.outputs.success }}
         run: |
-          git config user.name $user_name
-          git config user.email $user_email
+          git config --global user.name "Expugn"
+          git config --global user.email "Expugn@users.noreply.github.com"
           git add ./master_cn.db
           git add ./master_en.db
           git add ./master_jp.db
@@ -75,7 +75,5 @@ jobs:
           ${{ steps.download_database.outputs.diff }}'
           git push
         env:
-          user_name: 'Expugn'
-          user_email: 'Expugn@users.noreply.github.com'
           github_token: ${{ secrets.DEPLOY_ACCESS_TOKEN }}
           repository: ${{ github.repository }}
