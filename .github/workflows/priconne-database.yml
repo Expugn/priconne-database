@@ -71,10 +71,11 @@ jobs:
           git commit -m "[Bot] Database Updates - ${{ steps.download_database.outputs.title }}" -m '
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           This is an automated process. Issues may or may not have occured.
+          
           ${{ steps.download_database.outputs.diff }}'
           git push
         env:
           user_name: 'Expugn'
-          user_email: 'expugn@users.noreply.github.com'
+          user_email: 'Expugn@users.noreply.github.com'
           github_token: ${{ secrets.DEPLOY_ACCESS_TOKEN }}
           repository: ${{ github.repository }}
