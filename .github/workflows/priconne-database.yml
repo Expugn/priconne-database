@@ -68,10 +68,11 @@ jobs:
           git add ./master_jp.db
           git add ./master_kr.db
           git add ./master_tw.db
+          git add ./version.json
           git commit -m "[Bot] Database Updates - ${{ steps.download_database.outputs.title }}" -m '
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           This is an automated process. Issues may or may not have occured.
-          
+
           ${{ steps.download_database.outputs.diff }}'
           git push
         env:

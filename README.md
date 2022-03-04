@@ -7,10 +7,15 @@ Updating is done automatically through GitHub Actions. Updates will be checked e
 
 ## Supported Regions
 - China (`master_cn.db`)
+  - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_cn.db)
 - English (`master_en.db`)
+  - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_en.db)
 - Japan (`master_jp.db`)
+  - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_jp.db)
 - Korea (`master_kr.db`)
+  - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_kr.db)
 - Taiwan (`master_tw.db`)
+  - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_tw.db)
 
 ## Workflow
 The workflow can be found in `.github/workflows/priconne-database.yml`, but the process is as such:
