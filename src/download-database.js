@@ -116,7 +116,7 @@ function download_cn(hash) {
                 }
                 return;
             }
-            console.log("[update_cn] ERROR: UNABLE TO FETCH LATEST HASH.");
+            console.log("[download_cn] ERROR: UNABLE TO FETCH LATEST HASH.");
             resolve({});
         });
     });
@@ -140,44 +140,64 @@ function download_en(version, hash) {
         console.log("[download_en] DOWNLOADING DATABASE...");
         const name_unity3d = `${SETTING.FILE_NAME.EN}.unity3d`;
         const name = `${SETTING.FILE_NAME.EN}.db`;
+        let manifest_assetmanifest = "";
+        let masterdata_path = "";
         let bundle = "";
-        let latest_hash;
+
+        // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
         http.request({
             host: SETTING.HOST.EN,
-            path: `/dl/Resources/${version}/Jpn/AssetBundles/iOS/manifest/masterdata_assetmanifest`,
+            path: `/dl/Resources/${version}/Jpn/AssetBundles/iOS/manifest/manifest_assetmanifest`,
             method: 'GET',
         }, (res) => {
             res.on('data', function(chunk) {
-                bundle += Buffer.from(chunk).toString();
+                manifest_assetmanifest += Buffer.from(chunk).toString();
             });
             res.on('end', () => {
-                const b = bundle.split(',');
-                latest_hash = b[1];
-
-                // DOWNLOAD FILES
-                if (hash !== latest_hash) {
-                    console.log("[download_en] DATABASE CHANGES FOUND! DOWNLOADING...");
-                    diff.EN = [hash, latest_hash];
-                    const file = fs.createWriteStream(name_unity3d);
-                    http.get(`http://${SETTING.HOST.EN}/dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
-                        const stream = response.pipe(file);
-                        stream.on('finish', () => {
-                            // CONVERT .unity3d TO .db
-                            const { PythonShell } = require('python-shell');
-                            PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
-                                if (err) throw err;
-                                console.log(`[download_en] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
-                                resolve({success: true, hash: latest_hash});
-                            });
-                        });
-                    });
-                }
-                else {
-                    console.log('[download_en] DATABASE UP TO DATE!');
-                    resolve({});
-                }
+                masterdata_path = find_masterdata(manifest_assetmanifest);
+                dl();
             });
         }).end();
+
+        // called after masterdata path is found
+        function dl() {
+            http.request({
+                host: SETTING.HOST.EN,
+                path: `/dl/Resources/${version}/Jpn/AssetBundles/iOS/${masterdata_path}`,
+                method: 'GET',
+            }, (res) => {
+                res.on('data', function(chunk) {
+                    bundle += Buffer.from(chunk).toString();
+                });
+                res.on('end', () => {
+                    const b = bundle.split(',');
+                    const latest_hash = b[1];
+
+                    // DOWNLOAD FILES
+                    if (hash !== latest_hash) {
+                        console.log("[download_en] DATABASE CHANGES FOUND! DOWNLOADING...");
+                        diff.EN = [hash, latest_hash];
+                        const file = fs.createWriteStream(name_unity3d);
+                        http.get(`http://${SETTING.HOST.EN}/dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
+                            const stream = response.pipe(file);
+                            stream.on('finish', () => {
+                                // CONVERT .unity3d TO .db
+                                const { PythonShell } = require('python-shell');
+                                PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
+                                    if (err) throw err;
+                                    console.log(`[download_en] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
+                                    resolve({success: true, hash: latest_hash});
+                                });
+                            });
+                        });
+                    }
+                    else {
+                        console.log('[download_en] DATABASE UP TO DATE!');
+                        resolve({});
+                    }
+                });
+            }).end();
+        }
     });
 }
 
@@ -199,42 +219,64 @@ function download_jp(version, hash) {
         console.log("[download_jp] DOWNLOADING DATABASE...");
         const name_cdb = `${SETTING.FILE_NAME.JP}.cdb`;
         const name = `${SETTING.FILE_NAME.JP}.db`;
+        let manifest_assetmanifest = "";
+        let masterdata_path = "";
         let bundle = "";
+
+        // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
         http.request({
             host: SETTING.HOST.JP,
-            path: `/dl/Resources/${version}/Jpn/AssetBundles/iOS/manifest/masterdata_assetmanifest`,
+            path: `/dl/Resources/${version}/Jpn/AssetBundles/iOS/manifest/manifest_assetmanifest`,
             method: 'GET',
         }, (res) => {
             res.on('data', function(chunk) {
-                bundle += Buffer.from(chunk).toString();
+                manifest_assetmanifest += Buffer.from(chunk).toString();
             });
             res.on('end', () => {
-                const b = bundle.split(',');
-                const latest_hash = b[1];
-
-                if (latest_hash !== hash) {
-                    console.log("[download_jp] DATABASE CHANGES FOUND! DOWNLOADING...");
-                    diff.JP = [hash, latest_hash];
-                    const file = fs.createWriteStream(name_cdb);
-                    http.get(`http://${SETTING.HOST.JP}/dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
-                        const stream = response.pipe(file);
-                        stream.on('finish', () => {
-                            // CONVERT CDB TO DB
-                            exec(`${__dirname}/vendor/coneshell/Coneshell_call.exe -cdb ${name_cdb} ${name}`, (error, stdout, stderr) => {
-                                if (error) throw error;
-                                if (stderr) throw stderr;
-                                console.log(`[download_jp] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
-                                resolve({success: true, hash: latest_hash});
-                            });
-                        });
-                    });
-                }
-                else {
-                    console.log('[download_jp] DATABASE UP TO DATE!');
-                    resolve({});
-                }
+                masterdata_path = find_masterdata(manifest_assetmanifest);
+                console.log("jp", masterdata_path);
+                dl();
             });
         }).end();
+
+        // called after masterdata path is found
+        function dl() {
+            http.request({
+                host: SETTING.HOST.JP,
+                path: `/dl/Resources/${version}/Jpn/AssetBundles/iOS/${masterdata_path}`,
+                method: 'GET',
+            }, (res) => {
+                res.on('data', function(chunk) {
+                    bundle += Buffer.from(chunk).toString();
+                });
+                res.on('end', () => {
+                    const b = bundle.split(',');
+                    const latest_hash = b[1];
+
+                    if (latest_hash !== hash) {
+                        console.log("[download_jp] DATABASE CHANGES FOUND! DOWNLOADING...");
+                        diff.JP = [hash, latest_hash];
+                        const file = fs.createWriteStream(name_cdb);
+                        http.get(`http://${SETTING.HOST.JP}/dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
+                            const stream = response.pipe(file);
+                            stream.on('finish', () => {
+                                // CONVERT CDB TO DB
+                                exec(`${__dirname}/vendor/coneshell/Coneshell_call.exe -cdb ${name_cdb} ${name}`, (error, stdout, stderr) => {
+                                    if (error) throw error;
+                                    if (stderr) throw stderr;
+                                    console.log(`[download_jp] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
+                                    resolve({success: true, hash: latest_hash});
+                                });
+                            });
+                        });
+                    }
+                    else {
+                        console.log('[download_jp] DATABASE UP TO DATE!');
+                        resolve({});
+                    }
+                });
+            }).end();
+        }
     });
 }
 
@@ -257,40 +299,62 @@ function download_kr(version, cdnAddr, hash) {
         const path_prefix = cdnAddr.split(SETTING.HOST.KR)[1];
         const name_unity3d = `${SETTING.FILE_NAME.KR}.unity3d`;
         const name = `${SETTING.FILE_NAME.KR}.db`;
+        let manifest_assetmanifest = "";
+        let masterdata_path = "";
         let bundle = "";
+
+        // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
         https.request({
             host: SETTING.HOST.KR,
-            path: `${path_prefix}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/masterdata_assetmanifest`,
+            path: `${path_prefix}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`,
             method: 'GET',
         }, (res) => {
             res.on('data', function(chunk) {
-                bundle += Buffer.from(chunk).toString();
+                manifest_assetmanifest += Buffer.from(chunk).toString();
             });
             res.on('end', () => {
-                const b = bundle.split(',');
-                const latest_hash = b[1];
-                if (latest_hash !== hash) {
-                    console.log("[download_kr] DATABASE CHANGES FOUND! DOWNLOADING...");
-                    diff.KR = [hash, latest_hash];
-                    const file = fs.createWriteStream(name_unity3d);
-                    http.get(`${cdnAddr}dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
-                        const stream = response.pipe(file);
-                        stream.on('finish', () => {
-                            const { PythonShell } = require('python-shell');
-                            PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
-                                if (err) throw err;
-                                console.log(`[download_kr] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
-                                resolve({success: true, hash: latest_hash});
-                            });
-                        });
-                    });
-                }
-                else {
-                    console.log('[download_kr] DATABASE UP TO DATE!');
-                    resolve({});
-                }
+                masterdata_path = find_masterdata(manifest_assetmanifest);
+                console.log("kr", masterdata_path);
+                dl();
             });
         }).end();
+
+        // called after masterdata path is found
+        function dl() {
+            https.request({
+                host: SETTING.HOST.KR,
+                path: `${path_prefix}dl/Resources/${version}/Kor/AssetBundles/iOS/${masterdata_path}`,
+                method: 'GET',
+            }, (res) => {
+                res.on('data', function(chunk) {
+                    bundle += Buffer.from(chunk).toString();
+                });
+                res.on('end', () => {
+                    const b = bundle.split(',');
+                    const latest_hash = b[1];
+                    if (latest_hash !== hash) {
+                        console.log("[download_kr] DATABASE CHANGES FOUND! DOWNLOADING...");
+                        diff.KR = [hash, latest_hash];
+                        const file = fs.createWriteStream(name_unity3d);
+                        http.get(`${cdnAddr}dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
+                            const stream = response.pipe(file);
+                            stream.on('finish', () => {
+                                const { PythonShell } = require('python-shell');
+                                PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
+                                    if (err) throw err;
+                                    console.log(`[download_kr] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
+                                    resolve({success: true, hash: latest_hash});
+                                });
+                            });
+                        });
+                    }
+                    else {
+                        console.log('[download_kr] DATABASE UP TO DATE!');
+                        resolve({});
+                    }
+                });
+            }).end();
+        }
     });
 }
 
@@ -313,39 +377,66 @@ function download_tw(version, hash) {
         const name_unity3d = `${SETTING.FILE_NAME.TW}.unity3d`;
         const name = `${SETTING.FILE_NAME.TW}.db`;
         const version_str = `${version}`.padStart(8, '0');
+        let manifest_assetmanifest = "";
+        let masterdata_path = "";
         let bundle = "";
+
+        // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
         https.request({
             host: SETTING.HOST.TW,
-            path: `/dl/Resources/${version_str}/Jpn/AssetBundles/iOS/manifest/masterdata_assetmanifest`,
+            path: `/dl/Resources/${version_str}/Jpn/AssetBundles/iOS/manifest/manifest_assetmanifest`,
             method: 'GET',
         }, (res) => {
             res.on('data', function(chunk) {
-                bundle += Buffer.from(chunk).toString();
+                manifest_assetmanifest += Buffer.from(chunk).toString();
             });
             res.on('end', () => {
-                const b = bundle.split(',');
-                const latest_hash = b[1];
-                if (latest_hash !== hash) {
-                    console.log("[download_tw] DATABASE CHANGES FOUND! DOWNLOADING...");
-                    diff.TW = [hash, latest_hash];
-                    const file = fs.createWriteStream(name_unity3d);
-                    http.get(`http://${SETTING.HOST.TW}/dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
-                        const stream = response.pipe(file);
-                        stream.on('finish', () => {
-                            const { PythonShell } = require('python-shell');
-                            PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
-                                if (err) throw err;
-                                console.log(`[download_kr] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
-                                resolve({success: true, hash: latest_hash});
-                            });
-                        });
-                    });
-                }
-                else {
-                    console.log('[download_tw] DATABASE UP TO DATE!');
-                    resolve({});
-                }
+                masterdata_path = find_masterdata(manifest_assetmanifest);
+                dl();
             });
         }).end();
+
+        // called after masterdata path is found
+        function dl() {
+            https.request({
+                host: SETTING.HOST.TW,
+                path: `/dl/Resources/${version_str}/Jpn/AssetBundles/iOS/${masterdata_path}`,
+                method: 'GET',
+            }, (res) => {
+                res.on('data', function(chunk) {
+                    bundle += Buffer.from(chunk).toString();
+                });
+                res.on('end', () => {
+                    const b = bundle.split(',');
+                    const latest_hash = b[1];
+                    if (latest_hash !== hash) {
+                        console.log("[download_tw] DATABASE CHANGES FOUND! DOWNLOADING...");
+                        diff.TW = [hash, latest_hash];
+                        const file = fs.createWriteStream(name_unity3d);
+                        http.get(`http://${SETTING.HOST.TW}/dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
+                            const stream = response.pipe(file);
+                            stream.on('finish', () => {
+                                const { PythonShell } = require('python-shell');
+                                PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
+                                    if (err) throw err;
+                                    console.log(`[download_tw] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
+                                    resolve({success: true, hash: latest_hash});
+                                });
+                            });
+                        });
+                    }
+                    else {
+                        console.log('[download_tw] DATABASE UP TO DATE!');
+                        resolve({});
+                    }
+                });
+            }).end();
+        }
     });
+}
+
+function find_masterdata(manifest_assetmanifest) {
+    const b = manifest_assetmanifest.split('\n');
+    const results = b.filter((v) => /masterdata/.test(v));
+    return results[0].split(',')[0];
 }
