@@ -40,7 +40,7 @@ jobs:
         run: node ./src/check-for-updates.js
 
       - name: Setup Python [3.x]
-        if: ${{ steps.check_for_updates.outputs.success }}
+        if: ${{ steps.check_for_updates.outputs.success == 'true' }}
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
@@ -49,17 +49,17 @@ jobs:
       # it's kind of a pain to debug sooooo UnityPack is provided in vendor/UnityPack
 
       - name: Install Python dependencies
-        if: ${{ steps.check_for_updates.outputs.success }}
+        if: ${{ steps.check_for_updates.outputs.success == 'true' }}
         run: pip install lz4
 
       - name: Run download-database.js
-        if: ${{ steps.check_for_updates.outputs.success }}
+        if: ${{ steps.check_for_updates.outputs.success == 'true' }}
         id: download_database
         run: node ./src/download-database.js
 
       # assuming there are new changes
       - name: Update files on Git
-        if: ${{ steps.check_for_updates.outputs.success }}
+        if: ${{ steps.check_for_updates.outputs.success == 'true' }}
         run: |
           git config --global user.name "Expugn"
           git config --global user.email "Expugn@users.noreply.github.com"
