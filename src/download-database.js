@@ -296,7 +296,6 @@ function download_kr(version, cdnAddr, hash) {
             return;
         }
         console.log("[download_kr] DOWNLOADING DATABASE...");
-        const path_prefix = cdnAddr.split(SETTING.HOST.KR)[1];
         const name_unity3d = `${SETTING.FILE_NAME.KR}.unity3d`;
         const name = `${SETTING.FILE_NAME.KR}.db`;
         let manifest_assetmanifest = "";
@@ -304,11 +303,7 @@ function download_kr(version, cdnAddr, hash) {
         let bundle = "";
 
         // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
-        https.request({
-            host: SETTING.HOST.KR,
-            path: `${path_prefix}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`,
-            method: 'GET',
-        }, (res) => {
+        http.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`, (res) => {
             res.on('data', function(chunk) {
                 manifest_assetmanifest += Buffer.from(chunk).toString();
             });
@@ -321,11 +316,7 @@ function download_kr(version, cdnAddr, hash) {
 
         // called after masterdata path is found
         function dl() {
-            https.request({
-                host: SETTING.HOST.KR,
-                path: `${path_prefix}dl/Resources/${version}/Kor/AssetBundles/iOS/${masterdata_path}`,
-                method: 'GET',
-            }, (res) => {
+            http.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/${masterdata_path}`, (res) => {
                 res.on('data', function(chunk) {
                     bundle += Buffer.from(chunk).toString();
                 });

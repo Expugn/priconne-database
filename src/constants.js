@@ -10,7 +10,7 @@ const SETTING = Object.freeze({
         CN: '', // unused
         EN: 'assets-priconne-redive-us.akamaized.net',
         JP: 'prd-priconne-redive.akamaized.net',
-        KR: 'patch.pcr.kakaogame.com',
+        KR: 'patch.pcr.kakaogame.com', // unused
         TW: 'img-pc.so-net.tw',
     }),
     FILE_NAME: Object.freeze({
