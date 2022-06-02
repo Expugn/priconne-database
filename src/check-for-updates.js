@@ -280,7 +280,8 @@ function update_tw(version = SETTING.DEFAULT_TRUTH_VERSION.TW) {
         console.log('[update_tw] CHECKING FOR DATABASE UPDATES...');
         (async () => {
             // FIND THE NEW TRUTH VERSION
-            let guess = Math.floor(version / 10000) * 10000;
+            // let guess = Math.floor(version / 10000) * 10000; // old version, resume from last known truth version
+            let guess = 0; // new version, starting from scratch to prevent errors
             for (const delta of [10000, 1000, 100, 10, 1]) {
                 guess = await find_latest(guess, delta);
             }
