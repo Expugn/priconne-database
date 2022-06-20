@@ -309,7 +309,6 @@ function download_kr(version, cdnAddr, hash) {
             });
             res.on('end', () => {
                 masterdata_path = find_masterdata(manifest_assetmanifest);
-                console.log("kr", masterdata_path);
                 dl();
             });
         }).end();
