@@ -223,7 +223,6 @@ function update_kr(version = SETTING.DEFAULT_TRUTH_VERSION.KR, current_cdnAddr =
                 return {result: {version, cdnAddr: current_cdnAddr}};
             }
             const cdnAddr = JSON.parse(bundle).content.appOption.cdnAddr;
-            const path_prefix = cdnAddr.split(SETTING.HOST.KR)[1];
 
             if (cdnAddr === current_cdnAddr) {
                 // cdnAddr has not changed
@@ -232,13 +231,14 @@ function update_kr(version = SETTING.DEFAULT_TRUTH_VERSION.KR, current_cdnAddr =
             }
 
             // FIND THE NEW TRUTH VERSION
+            const cdn_url = new URL(cdnAddr);
             for (let i = 1 ; i <= SETTING.TEST_MAX.KR ; i++) {
                 const guess = version + (i * SETTING.TEST_MULTIPLIER);
                 if (guess % 1000 === 0) {
                     console.log(`[update_kr] ${'[GUESS]'.padEnd(10)} ${guess} ~`);
                 }
-                const res = await request_http(SETTING.HOST.KR,
-                    `${path_prefix}dl/Resources/${guess}/Kor/AssetBundles/iOS/manifest/masterdata_assetmanifest`);
+                const res = await request_http(cdn_url.hostname,
+                    `${cdn_url.pathname}dl/Resources/${guess}/Kor/AssetBundles/iOS/manifest/masterdata_assetmanifest`);
                 if (res.statusCode === 200) {
                     console.log(`[update_kr] ${'[SUCCESS]'.padEnd(10)} ${guess} RETURNED STATUS CODE 200 (VALID TRUTH VERSION)`);
 
