@@ -238,7 +238,7 @@ function update_kr(version = SETTING.DEFAULT_TRUTH_VERSION.KR, current_cdnAddr =
                     console.log(`[update_kr] ${'[GUESS]'.padEnd(10)} ${guess} ~`);
                 }
                 const res = await request_http(cdn_url.hostname,
-                    `${cdn_url.pathname}dl/Resources/${guess}/Kor/AssetBundles/iOS/manifest/masterdata_assetmanifest`);
+                    `${cdn_url.pathname}dl/Resources/${guess}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`);
                 if (res.statusCode === 200) {
                     console.log(`[update_kr] ${'[SUCCESS]'.padEnd(10)} ${guess} RETURNED STATUS CODE 200 (VALID TRUTH VERSION)`);
 
