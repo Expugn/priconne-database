@@ -184,9 +184,7 @@ function check_hash_en(version, hash) {
         console.log('[check_hash_en] CHECKING FOR NEW DATABASE HASH');
         (async () => {
             const {res, bundle} = await request_http(SETTING.HOST.EN, `/dl/Resources/${version}/Jpn/AssetBundles/iOS/manifest/masterdata_assetmanifest`, true);
-            console.log("!en bundle", bundle);
             const new_hash = bundle.split(",")[1];
-            console.log("!new hash", new_hash);
             return {result: {hash: new_hash}};
         })().then(({result}) => {
             console.log(`[check_hash_en] HASH CHECK COMPLETE ; CURRENT HASH: ${hash} ; LATEST HASH: ${result.hash}`);
