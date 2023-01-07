@@ -70,6 +70,13 @@ function update() {
         if (current.EN.version !== result.EN.version) {
             changed.EN = true;
         }
+        else {
+            // version didn't change, but what about the hash?
+            const res = await check_hash_en(result.EN.version, current.EN.hash);
+            if (res.success) {
+                changed.EN = true;
+            }
+        }
         if (current.JP.version !== result.JP.version) {
             changed.JP = true;
         }
@@ -145,6 +152,7 @@ function update_en(version = SETTING.DEFAULT_TRUTH_VERSION.EN) {
     /*
         priconne-en datamine notes
         - versioning pattern seems the same as jp, so that's cool.
+        - it's possible for database to update but truth version doesn't
     */
     return new Promise(async function (resolve) {
         console.log('[update_en] CHECKING FOR DATABASE UPDATES...');
@@ -168,6 +176,25 @@ function update_en(version = SETTING.DEFAULT_TRUTH_VERSION.EN) {
             console.log(`[update_en] VERSION CHECK COMPLETE ; LATEST TRUTH VERSION: ${result.version}`);
             resolve(result);
         });
+    });
+}
+
+function check_hash_en(version, hash) {
+    return new Promise(async function (resolve) {
+        console.log('[check_hash_en] CHECKING FOR NEW DATABASE HASH');
+        (async () => {
+            const {res, bundle} = await request_http(SETTING.HOST.EN, `/dl/Resources/${version}/Jpn/AssetBundles/iOS/manifest/masterdata_assetmanifest`, true);
+            console.log("!en bundle", bundle);
+            const new_hash = bundle.split(",")[1];
+            console.log("!new hash", new_hash);
+            return {result: {hash: new_hash}};
+        })().then(({result}) => {
+            console.log(`[check_hash_en] HASH CHECK COMPLETE ; CURRENT HASH: ${hash} ; LATEST HASH: ${result.hash}`);
+            resolve({
+                ...result,
+                success: hash !== result.hash,
+            });
+        })
     });
 }
 
