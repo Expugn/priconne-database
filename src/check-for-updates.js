@@ -48,7 +48,7 @@ function update() {
 
         const promises = await Promise.all([
             update_cn(current.CN.version),
-            update_en(current.EN.version),
+            // update_en(current.EN.version),
             update_jp(current.JP.version),
             update_kr(current.KR.version, current.KR.cdnAddr),
             update_tw(current.TW.version),
@@ -59,24 +59,24 @@ function update() {
         let changed = {};
         const result = {
             CN: promises[0],
-            EN: promises[1],
-            JP: promises[2],
-            KR: promises[3],
-            TW: promises[4],
+            // EN: promises[1],
+            JP: promises[1],
+            KR: promises[2],
+            TW: promises[3],
         };
         if (current.CN.version !== result.CN.version) {
             changed.CN = true;
         }
-        if (current.EN.version !== result.EN.version) {
-            changed.EN = true;
-        }
-        else {
-            // version didn't change, but what about the hash?
-            const res = await check_hash_en(result.EN.version, current.EN.hash);
-            if (res.success) {
-                changed.EN = true;
-            }
-        }
+        // if (current.EN.version !== result.EN.version) {
+        //     changed.EN = true;
+        // }
+        // else {
+        //     // version didn't change, but what about the hash?
+        //     const res = await check_hash_en(result.EN.version, current.EN.hash);
+        //     if (res.success) {
+        //         changed.EN = true;
+        //     }
+        // }
         if (current.JP.version !== result.JP.version) {
             changed.JP = true;
         }
@@ -94,10 +94,10 @@ function update() {
                 ...current.CN,
                 version: result.CN.version,
             };
-            current.EN = {
-                ...current.EN,
-                version: result.EN.version,
-            };
+            // current.EN = {
+            //     ...current.EN,
+            //     version: result.EN.version,
+            // };
             current.JP = {
                 ...current.JP,
                 version: result.JP.version,
@@ -153,6 +153,7 @@ function update_en(version = SETTING.DEFAULT_TRUTH_VERSION.EN) {
         priconne-en datamine notes
         - versioning pattern seems the same as jp, so that's cool.
         - it's possible for database to update but truth version doesn't
+        - this will no longer work, priconne-en has shut down their servers as of April 30th 2023: <https://twitter.com/priconne_en/status/1652477875331932161>
     */
     return new Promise(async function (resolve) {
         console.log('[update_en] CHECKING FOR DATABASE UPDATES...');

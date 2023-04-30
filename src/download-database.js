@@ -42,7 +42,7 @@ function download() {
 
         const promises = await Promise.all([
             download_cn(current.CN.hash),
-            download_en(current.EN.version, current.EN.hash),
+            // download_en(current.EN.version, current.EN.hash),
             download_jp(current.JP.version, current.JP.hash),
             download_kr(current.KR.version, current.KR.cdnAddr, current.KR.hash),
             download_tw(current.TW.version, current.TW.hash),
@@ -50,10 +50,10 @@ function download() {
 
         const result = {
             CN: promises[0],
-            EN: promises[1],
-            JP: promises[2],
-            KR: promises[3],
-            TW: promises[4],
+            // EN: promises[1],
+            JP: promises[1],
+            KR: promises[2],
+            TW: promises[3],
         };
 
         // update hashes in version file
@@ -66,7 +66,7 @@ function download() {
             if (err) throw err;
         });
         resolve(fs.existsSync(`${SETTING.FILE_NAME.CN}.db`)
-            && fs.existsSync(`${SETTING.FILE_NAME.EN}.db`)
+        //     && fs.existsSync(`${SETTING.FILE_NAME.EN}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.JP}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.KR}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.TW}.db`));
@@ -126,6 +126,7 @@ function download_en(version, hash) {
     /*
         priconne-en database notes
         - masterdata is not encrypted, can use UnityPack to deserialize.
+        - this will no longer work, priconne-en has shut down their servers as of April 30th 2023: <https://twitter.com/priconne_en/status/1652477875331932161>
     */
     return new Promise(async function (resolve) {
         if (!CHANGED.EN) {

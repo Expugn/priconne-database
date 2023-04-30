@@ -8,7 +8,9 @@ Updating is done automatically through GitHub Actions. Updates will be checked e
 ## Supported Regions
 - China (`master_cn.db`)
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_cn.db)
-- English (`master_en.db`)
+- ~~English~~ (`master_en.db`)
+  - English server has ended service as of `April 30, 2023 (UTC)`.
+    - <https://twitter.com/priconne_en/status/1652477875331932161>
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_en.db)
 - Japan (`master_jp.db`)
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_jp.db)
