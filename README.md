@@ -18,7 +18,7 @@ Updating is done automatically through GitHub Actions. Updates will be checked e
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_kr.db)
 - Taiwan (`master_tw.db`)
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_tw.db)
-- Thai (`master_th.db`)
+- Thailand (`master_th.db`)
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_th.db)
 
 ## Workflow
