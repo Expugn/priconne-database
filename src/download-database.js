@@ -45,6 +45,7 @@ function download() {
             // download_en(current.EN.version, current.EN.hash),
             download_jp(current.JP.version, current.JP.hash),
             download_kr(current.KR.version, current.KR.cdnAddr, current.KR.hash),
+            download_th(current.TH.version, current.TH.hash),
             download_tw(current.TW.version, current.TW.hash),
         ]);
 
@@ -53,7 +54,8 @@ function download() {
             // EN: promises[1],
             JP: promises[1],
             KR: promises[2],
-            TW: promises[3],
+            TH: promises[3],
+            TW: promises[4],
         };
 
         // update hashes in version file
@@ -69,6 +71,7 @@ function download() {
         //     && fs.existsSync(`${SETTING.FILE_NAME.EN}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.JP}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.KR}.db`)
+            && fs.existsSync(`${SETTING.FILE_NAME.TH}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.TW}.db`));
     });
 }
@@ -235,7 +238,6 @@ function download_jp(version, hash) {
             });
             res.on('end', () => {
                 masterdata_path = find_masterdata(manifest_assetmanifest);
-                console.log("jp", masterdata_path);
                 dl();
             });
         }).end();
@@ -341,6 +343,80 @@ function download_kr(version, cdnAddr, hash) {
                     }
                     else {
                         console.log('[download_kr] DATABASE UP TO DATE!');
+                        resolve({});
+                    }
+                });
+            }).end();
+        }
+    });
+}
+
+function download_th(version, hash) {
+    /*
+        priconne-th database notes
+        - masterdata is not encrypted, does not need deserialization.
+        - the database is served straight up.
+    */
+    return new Promise(async function (resolve) {
+        if (!CHANGED.TH) {
+            resolve({});
+            return;
+        }
+        if (!version || hash === undefined) {
+            console.log("[download_th] VERSION OR HASH NOT PROVIDED.");
+            resolve({});
+            return;
+        }
+        console.log("[download_th] DOWNLOADING DATABASE...");
+        const name = `${SETTING.FILE_NAME.TH}.db`;
+        let manifest_assetmanifest = "";
+        let masterdata_path = "";
+        let bundle = "";
+
+        // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
+        https.request({
+            host: SETTING.HOST.TH,
+            path: `/PCC/Live/dl/Resources/${version}/Tha/AssetBundles/iOS/manifest/manifest_assetmanifest`,
+            method: 'GET',
+        }, (res) => {
+            res.on('data', function(chunk) {
+                manifest_assetmanifest += Buffer.from(chunk).toString();
+            });
+            res.on('end', () => {
+                masterdata_path = find_masterdata(manifest_assetmanifest);
+                dl();
+            });
+        }).end();
+
+        // called after masterdata path is found
+        function dl() {
+            https.request({
+                host: SETTING.HOST.TH,
+                path: `/PCC/Live/dl/Resources/${version}/Tha/AssetBundles/iOS/${masterdata_path}`,
+                method: 'GET',
+            }, (res) => {
+                res.on('data', function(chunk) {
+                    bundle += Buffer.from(chunk).toString();
+                });
+                res.on('end', () => {
+                    const b = bundle.split(',');
+                    const latest_hash = b[1];
+
+                    if (latest_hash !== hash) {
+                        console.log("[download_th] DATABASE CHANGES FOUND! DOWNLOADING...");
+                        diff.TH = [hash, latest_hash];
+                        const file = fs.createWriteStream(name);
+                        https.get(`https://${SETTING.HOST.TH}/PCC/Live/dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
+                            const stream = response.pipe(file);
+                            stream.on('finish', () => {
+                                // DOWNLOADED DB
+                                console.log(`[download_th] DOWNLOADED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
+                                resolve({success: true, hash: latest_hash});
+                            });
+                        });
+                    }
+                    else {
+                        console.log('[download_th] DATABASE UP TO DATE!');
                         resolve({});
                     }
                 });

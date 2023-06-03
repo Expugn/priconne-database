@@ -38,6 +38,10 @@ function update() {
                     hash: "",
                     cdnAddr: "",
                 },
+                TH: {
+                    version: SETTING.DEFAULT_TRUTH_VERSION.TH,
+                    hash: "",
+                },
                 TW: {
                     version: SETTING.DEFAULT_TRUTH_VERSION.TW,
                     hash: "",
@@ -51,6 +55,7 @@ function update() {
             // update_en(current.EN.version),
             update_jp(current.JP.version),
             update_kr(current.KR.version, current.KR.cdnAddr),
+            update_th(current.TH.version),
             update_tw(current.TW.version),
         ]);
         console.log("[update] UPDATE CHECK COMPLETE", promises);
@@ -62,7 +67,8 @@ function update() {
             // EN: promises[1],
             JP: promises[1],
             KR: promises[2],
-            TW: promises[3],
+            TH: promises[3],
+            TW: promises[4],
         };
         if (current.CN.version !== result.CN.version) {
             changed.CN = true;
@@ -82,6 +88,9 @@ function update() {
         }
         if (current.KR.version !== result.KR.version || current.KR.cdnAddr !== result.KR.cdnAddr) {
             changed.KR = true;
+        }
+        if (current.TH.version !== result.TH.version) {
+            changed.TH = true;
         }
         if (current.TW.version !== result.TW.version) {
             changed.TW = true;
@@ -107,10 +116,14 @@ function update() {
                 version: result.KR.version,
                 cdnAddr: result.KR.cdnAddr,
             };
+            current.TH = {
+                ...current.TH,
+                version: result.TH.version,
+            };
             current.TW = {
                 ...current.TW,
                 version: result.TW.version,
-            }
+            };
             fs.writeFile(version_file, JSON.stringify(current), function (err) {
                 if (err) throw err;
             });
@@ -291,6 +304,37 @@ function update_kr(version = SETTING.DEFAULT_TRUTH_VERSION.KR, current_cdnAddr =
             });
         });
     }
+}
+
+function update_th(version = SETTING.DEFAULT_TRUTH_VERSION.TH) {
+    /*
+        priconne-th datamine notes
+        - versions seem to increment by 10s (similar to JP)
+        - instead of "Jpn" it uses "Tha" (similar to KR)
+        - versions can jump to the next 1000th version whenever
+        - certain 1000 versions arent guaranteed to exist, e.g. 10000400 -> 10002000... 10001000 did not exist
+    */
+    console.log('[update_th] CHECKING FOR DATABASE UPDATES...');
+    (async () => {
+        // FIND THE NEW TRUTH VERSION
+        for (let i = 1 ; i <= SETTING.TEST_MAX.TH ; i++) {
+            const guess = version + (i * SETTING.TEST_MULTIPLIER);
+            console.log(`[update_th] ${'[GUESS]'.padEnd(10)} ${guess}`);
+            const res = await request_https(SETTING.HOST.TH,
+                `/PCC/Live/dl/Resources/${guess}/Tha/AssetBundles/iOS/manifest/manifest_assetmanifest`);
+            if (res.statusCode === 200) {
+                console.log(`[update_th] ${'[SUCCESS]'.padEnd(10)} ${guess} RETURNED STATUS CODE 200 (VALID TRUTH VERSION)`);
+
+                // RESET LOOP
+                version = guess;
+                i = 0;
+            }
+        }
+        return {result: {version}};
+    })().then(({result}) => {
+        console.log(`[update_th] VERSION CHECK COMPLETE ; LATEST TRUTH VERSION: ${result.version}`);
+        resolve(result);
+    });
 }
 
 function update_tw(version = SETTING.DEFAULT_TRUTH_VERSION.TW) {

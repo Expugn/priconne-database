@@ -4,6 +4,7 @@ const SETTING = Object.freeze({
         EN: 10000000,
         JP: 10010800,
         KR: 10000000,
+        TH: 10026400,
         TW: 0,
     }),
     HOST: Object.freeze({
@@ -11,6 +12,7 @@ const SETTING = Object.freeze({
         EN: 'assets-priconne-redive-us.akamaized.net',
         JP: 'prd-priconne-redive.akamaized.net',
         KR: 'patch.pcr.kakaogame.com', // unused
+        TH: 'patch.i3play.com',
         TW: 'img-pc.so-net.tw',
     }),
     FILE_NAME: Object.freeze({
@@ -18,6 +20,7 @@ const SETTING = Object.freeze({
         EN: 'master_en',
         JP: 'master_jp',
         KR: 'master_kr',
+        TH: 'master_th',
         TW: 'master_tw',
     }),
     TEST_MAX: Object.freeze({
@@ -25,6 +28,7 @@ const SETTING = Object.freeze({
         EN: 20,
         JP: 20,
         KR: 1000, // check up to 10,000 truth versions
+        TH: 200,
         TW: 0, // unused
     }),
     TEST_MULTIPLIER: 10,
