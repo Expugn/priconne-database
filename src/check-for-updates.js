@@ -1,7 +1,6 @@
 const fs = require('fs');
-const path = require('path');
 const core = require('@actions/core');
-const { SETTING, request_http, request_https } = require('./constants');
+const { SETTING, request_http, request_https, cn_get_maintenance_status } = require('./constants');
 
 run();
 async function run() {
@@ -24,6 +23,7 @@ function update() {
                 CN: {
                     version: SETTING.DEFAULT_TRUTH_VERSION.CN,
                     hash: "",
+                    cdnAddr: "",
                 },
                 EN: {
                     version: SETTING.DEFAULT_TRUTH_VERSION.EN,
@@ -70,7 +70,7 @@ function update() {
             TH: promises[3],
             TW: promises[4],
         };
-        if (current.CN.version !== result.CN.version) {
+        if (current.CN.version !== result.CN.version || current.CN.cdnAddr !== result.CN.cdnAddr) {
             changed.CN = true;
         }
         // if (current.EN.version !== result.EN.version) {
@@ -102,6 +102,7 @@ function update() {
             current.CN = {
                 ...current.CN,
                 version: result.CN.version,
+                cdnAddr: result.CN.cdnAddr,
             };
             // current.EN = {
             //     ...current.EN,
@@ -141,23 +142,25 @@ function update() {
 function update_cn(version = SETTING.DEFAULT_TRUTH_VERSION.CN) {
     /*
         priconne-cn datamine notes
-        - lol idk how to datamine cn. i'm just stealing from esterTion's API.
+        - truth version can be obtained from https://le1-prod-all-gs-gzlj.bilibiligame.net/source_ini/get_maintenance_status?format=json (no need to guess)
+          - needs to be a POST with the "RES-KEY" header. "RES-KEY" seems to be the same for everyone, but that might change idk
+          - response also contains the CDN host
+        - url to get manifest/assets are the most unique here (specifically missing region code and formatting):
+          - https://<cdn_address>/Manifest/AssetBundles/<platform>/<version>/manifest/<manifest_name>_assetmanifest
+          - https://<cdn_address>/pool/AssetBundles/<platform>/<first_2_characters_of_hash>/<hash>
     */
     return new Promise(async function (resolve) {
         console.log('[update_cn] CHECKING FOR DATABASE UPDATES...');
-        request_https('redive.estertion.win', '/last_version_cn.json', true)
-        .then(({res, bundle}) => {
-            if (res.statusCode === 200) {
-                const json = JSON.parse(bundle);
-                console.log(`[update_cn] VERSION CHECK COMPLETE ; LATEST TRUTH VERSION: ${json.TruthVersion}`);
-                resolve({
-                    version: json.TruthVersion,
-                });
-                return;
-            }
-            console.log("[update_cn] ERROR: UNABLE TO FETCH LATEST TRUTH VERSION.");
-            resolve({version});
-        });
+
+        // get truth version
+        const res = await cn_get_maintenance_status();
+        const result = {
+            version: res.data.manifest_ver,
+            cdnAddr: res.data.resource[0]
+        };
+
+        console.log(`[update_cn] VERSION CHECK COMPLETE ; LATEST TRUTH VERSION: ${result.version}`);
+        resolve(result);
     });
 }
 
@@ -314,26 +317,28 @@ function update_th(version = SETTING.DEFAULT_TRUTH_VERSION.TH) {
         - versions can jump to the next 1000th version whenever
         - certain 1000 versions arent guaranteed to exist, e.g. 10000400 -> 10002000... 10001000 did not exist
     */
-    console.log('[update_th] CHECKING FOR DATABASE UPDATES...');
-    (async () => {
-        // FIND THE NEW TRUTH VERSION
-        for (let i = 1 ; i <= SETTING.TEST_MAX.TH ; i++) {
-            const guess = version + (i * SETTING.TEST_MULTIPLIER);
-            console.log(`[update_th] ${'[GUESS]'.padEnd(10)} ${guess}`);
-            const res = await request_https(SETTING.HOST.TH,
-                `/PCC/Live/dl/Resources/${guess}/Tha/AssetBundles/iOS/manifest/manifest_assetmanifest`);
-            if (res.statusCode === 200) {
-                console.log(`[update_th] ${'[SUCCESS]'.padEnd(10)} ${guess} RETURNED STATUS CODE 200 (VALID TRUTH VERSION)`);
+    return new Promise(async function (resolve) {
+        console.log('[update_th] CHECKING FOR DATABASE UPDATES...');
+        (async () => {
+            // FIND THE NEW TRUTH VERSION
+            for (let i = 1 ; i <= SETTING.TEST_MAX.TH ; i++) {
+                const guess = version + (i * SETTING.TEST_MULTIPLIER);
+                console.log(`[update_th] ${'[GUESS]'.padEnd(10)} ${guess}`);
+                const res = await request_https(SETTING.HOST.TH,
+                    `/PCC/Live/dl/Resources/${guess}/Tha/AssetBundles/iOS/manifest/manifest_assetmanifest`);
+                if (res.statusCode === 200) {
+                    console.log(`[update_th] ${'[SUCCESS]'.padEnd(10)} ${guess} RETURNED STATUS CODE 200 (VALID TRUTH VERSION)`);
 
-                // RESET LOOP
-                version = guess;
-                i = 0;
+                    // RESET LOOP
+                    version = guess;
+                    i = 0;
+                }
             }
-        }
-        return {result: {version}};
-    })().then(({result}) => {
-        console.log(`[update_th] VERSION CHECK COMPLETE ; LATEST TRUTH VERSION: ${result.version}`);
-        resolve(result);
+            return {result: {version}};
+        })().then(({result}) => {
+            console.log(`[update_th] VERSION CHECK COMPLETE ; LATEST TRUTH VERSION: ${result.version}`);
+            resolve(result);
+        });
     });
 }
 

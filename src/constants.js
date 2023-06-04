@@ -80,8 +80,31 @@ function request_https(host, path, download = false) {
     });
 }
 
+function cn_get_maintenance_status() {
+    return new Promise((resolve) => {
+        const https = require('https');
+        https.request({
+            host: "le1-prod-all-gs-gzlj.bilibiligame.net",
+            path: "/source_ini/get_maintenance_status?format=json",
+            method: 'POST',
+            headers: {
+                "RES-KEY": "ab00a0a6dd915a052a2ef7fd649083e5"
+            },
+        }, (res) => {
+            let bundle = "";
+            res.on('data', (chunk) => {
+                bundle += Buffer.from(chunk).toString();
+            });
+            res.on('end', () => {
+                resolve(JSON.parse(bundle));
+            });
+        }).end();
+    });
+}
+
 module.exports = {
     SETTING,
     request_http,
     request_https,
+    cn_get_maintenance_status
 };
