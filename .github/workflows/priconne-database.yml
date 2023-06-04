@@ -67,6 +67,7 @@ jobs:
           git add ./master_en.db
           git add ./master_jp.db
           git add ./master_kr.db
+          git add ./master_th.db
           git add ./master_tw.db
           git add ./version.json
           git commit -m "[Bot] Database Updates - ${{ steps.download_database.outputs.title }}" -m '
