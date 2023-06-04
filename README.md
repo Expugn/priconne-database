@@ -27,6 +27,10 @@ The workflow can be found in `.github/workflows/priconne-database.yml`, but the 
 2. Download databases if updates are found (`src/download-database.js`)
 3. Upload to Git
 
+## Formatted Data Files
+If you want to examine the data in the database files without downloading or figuring out how to open a `.db`/SQLite file:<br/>
+<https://github.com/Expugn/priconne-diff>
+
 ## Other Stuff
 This is a non-profit fan project with the purpose of practice and entertainment.<br/>
 All assets belong to their respective owners.

@@ -323,7 +323,9 @@ function update_th(version = SETTING.DEFAULT_TRUTH_VERSION.TH) {
             // FIND THE NEW TRUTH VERSION
             for (let i = 1 ; i <= SETTING.TEST_MAX.TH ; i++) {
                 const guess = version + (i * SETTING.TEST_MULTIPLIER);
-                console.log(`[update_th] ${'[GUESS]'.padEnd(10)} ${guess}`);
+                if (guess % 500 === 0) {
+                    console.log(`[update_th] ${'[GUESS]'.padEnd(10)} ${guess} ~`);
+                }
                 const res = await request_https(SETTING.HOST.TH,
                     `/PCC/Live/dl/Resources/${guess}/Tha/AssetBundles/iOS/manifest/manifest_assetmanifest`);
                 if (res.statusCode === 200) {
