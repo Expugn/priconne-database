@@ -3,8 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const { exec } = require('child_process');
 const core = require('@actions/core');
-const brotli_decompress = require('brotli/decompress');
-const { SETTING, request_https } = require('./constants');
+const { SETTING } = require('./constants');
 
 const CHANGED = fs.existsSync('changed.json') ? JSON.parse(fs.readFileSync('changed.json', 'utf8')) : {};
 const diff = {};
@@ -127,7 +126,7 @@ function download_cn(version, cdnAddr, hash) {
                             const stream = response.pipe(file);
                             stream.on('finish', () => {
                                 const { PythonShell } = require('python-shell');
-                                PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
+                                PythonShell.run('src/deserialize.py', { args: ["CN", name_unity3d, name] }, function(err) {
                                     if (err) throw err;
                                     console.log(`[download_cn] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
                                     resolve({success: true, hash: latest_hash});
@@ -207,7 +206,7 @@ function download_en(version, hash) {
                             stream.on('finish', () => {
                                 // CONVERT .unity3d TO .db
                                 const { PythonShell } = require('python-shell');
-                                PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
+                                PythonShell.run('src/deserialize.py', { args: ["EN", name_unity3d, name] }, function(err) {
                                     if (err) throw err;
                                     console.log(`[download_en] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
                                     resolve({success: true, hash: latest_hash});
@@ -353,7 +352,7 @@ function download_kr(version, cdnAddr, hash) {
                             const stream = response.pipe(file);
                             stream.on('finish', () => {
                                 const { PythonShell } = require('python-shell');
-                                PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
+                                PythonShell.run('src/deserialize.py', { args: ["KR", name_unity3d, name] }, function(err) {
                                     if (err) throw err;
                                     console.log(`[download_kr] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
                                     resolve({success: true, hash: latest_hash});
@@ -504,7 +503,7 @@ function download_tw(version, hash) {
                             const stream = response.pipe(file);
                             stream.on('finish', () => {
                                 const { PythonShell } = require('python-shell');
-                                PythonShell.run('src/deserialize.py', { args: [name_unity3d, name] }, function(err) {
+                                PythonShell.run('src/deserialize.py', { args: ["TW", name_unity3d, name] }, function(err) {
                                     if (err) throw err;
                                     console.log(`[download_tw] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
                                     resolve({success: true, hash: latest_hash});

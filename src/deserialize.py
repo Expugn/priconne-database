@@ -1,30 +1,38 @@
 """
 HOW TO USE:
-`python deserialize.py <import_path> <export_path>`
+`python deserialize.py <region> <import_path> <export_path>`
 
 REQUIRED DEPENDENCIES:
-- lz4       `pip install lz4`
-- UnityPack (provided), the version from `pip install unitypack` causes issues i cant be bothered to debug
+- UnityPy
 """
 
 import sys
-from io import BytesIO
-from vendor.UnityPack import unitypack
+import os
+import json
 
-def open_texture2d(import_path, export_path):
-    with open(import_path, 'rb') as f:
-        bundle = unitypack.load(f)
-        for asset in bundle.assets:
-            for id, object in asset.objects.items():
-                if object.type == 'TextAsset':
-                    data = object.read()
+import UnityPy
+import UnityPy.config
 
-                    with open(export_path, 'wb') as fi:
-                         fi.write(data.script)
-                         print('<DESERIALIZE>', import_path, '->', export_path)
+
+def open_textasset(import_path, export_path):
+    env = UnityPy.load(import_path)
+    for obj in env.objects:
+        if obj.type.name in ["TextAsset"]:
+            data = obj.read()
+            with open(export_path, "wb") as f:
+                f.write(bytes(data.script))
+                print('<DESERIALIZE>', f"({obj.type.name})", import_path, '->', export_path)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 4:
         print('Not enough arguments.')
         sys.exit()
-    open_texture2d(sys.argv[1], sys.argv[2])
+
+    # change FALLBACK_UNITY_VERSION if needed
+    UnityPy.config.FALLBACK_VERSION_WARNED = True
+    with open(f"{os.getcwd()}/src/unity.json") as f:
+        data = json.load(f)
+        if sys.argv[1] in data:
+            UnityPy.config.FALLBACK_UNITY_VERSION = data[sys.argv[1]]
+
+    open_textasset(sys.argv[2], sys.argv[3])
