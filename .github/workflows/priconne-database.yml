@@ -50,7 +50,7 @@ jobs:
 
       - name: Install Python dependencies
         if: ${{ steps.check_for_updates.outputs.success == 'true' }}
-        run: pip install UnityPy
+        run: pip install UnityPy==1.9.28
 
       - name: Run download-database.js
         if: ${{ steps.check_for_updates.outputs.success == 'true' }}
