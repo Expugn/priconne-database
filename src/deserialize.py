@@ -34,5 +34,6 @@ if __name__ == "__main__":
         data = json.load(f)
         if sys.argv[1] in data:
             UnityPy.config.FALLBACK_UNITY_VERSION = data[sys.argv[1]]
+            print(f"<UnityPy> Using Unity version {UnityPy.config.FALLBACK_UNITY_VERSION}...")
 
     open_textasset(sys.argv[2], sys.argv[3])

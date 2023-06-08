@@ -503,7 +503,10 @@ function download_tw(version, hash) {
                             const stream = response.pipe(file);
                             stream.on('finish', () => {
                                 const { PythonShell } = require('python-shell');
-                                PythonShell.run('src/deserialize.py', { args: ["TW", name_unity3d, name] }, function(err) {
+                                PythonShell.run('src/deserialize.py', { args: ["TW", name_unity3d, name] }, function(err, results) {
+                                    for (let i of results) {
+                                        console.log(i);
+                                    }
                                     if (err) throw err;
                                     console.log(`[download_tw] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
                                     resolve({success: true, hash: latest_hash});
