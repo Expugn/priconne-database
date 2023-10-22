@@ -39,11 +39,12 @@ jobs:
         id: check_for_updates
         run: node ./src/check-for-updates.js
 
-      - name: Setup Python [3.x]
+      # Python 3.12.0+ seems to break UnityPy build.
+      - name: Setup Python [3.11.5]
         if: ${{ steps.check_for_updates.outputs.success == 'true' }}
         uses: actions/setup-python@v3
         with:
-          python-version: '3.x'
+          python-version: '3.11.5'
 
       # btw for some reason installing UnityPack here causes issues
       # it's kind of a pain to debug sooooo UnityPack is provided in vendor/UnityPack
