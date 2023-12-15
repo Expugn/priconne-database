@@ -51,7 +51,7 @@ function update() {
         }
 
         const promises = await Promise.all([
-            update_cn(current.CN.version),
+            update_cn(current.CN.version, current.CN,cdnAddr),
             // update_en(current.EN.version),
             update_jp(current.JP.version),
             update_kr(current.KR.version, current.KR.cdnAddr),
@@ -139,7 +139,7 @@ function update() {
     });
 }
 
-function update_cn(version = SETTING.DEFAULT_TRUTH_VERSION.CN) {
+function update_cn(version = SETTING.DEFAULT_TRUTH_VERSION.CN, current_cdnAddr = "") {
     /*
         priconne-cn datamine notes
         - truth version can be obtained from https://le1-prod-all-gs-gzlj.bilibiligame.net/source_ini/get_maintenance_status?format=json (no need to guess)
@@ -148,12 +148,22 @@ function update_cn(version = SETTING.DEFAULT_TRUTH_VERSION.CN) {
         - url to get manifest/assets are the most unique here (specifically missing region code and formatting):
           - https://<cdn_address>/Manifest/AssetBundles/<platform>/<version>/manifest/<manifest_name>_assetmanifest
           - https://<cdn_address>/pool/AssetBundles/<platform>/<first_2_characters_of_hash>/<hash>
+        - maintenance can happen on server sometimes, making it impossible to get maintenance status as it will return "发生了错误。返回到标题界面。"
+          - check if `data.resource` exists and if not then just return whatever CN version had last
     */
     return new Promise(async function (resolve) {
         console.log('[update_cn] CHECKING FOR DATABASE UPDATES...');
 
         // get truth version
         const res = await cn_get_maintenance_status();
+        if (!res.data.resource) {
+            console.log(`[update_cn] UNABLE TO GET MAINTENANCE STATUS, GAME UNDER MAINTENANCE? SKIPPING FOR NOW...`);
+            resolve({
+                version: version,
+                cdnAddr: current_cdnAddr
+            });
+            return;
+        }
         const result = {
             version: res.data.manifest_ver,
             cdnAddr: res.data.resource[0]
