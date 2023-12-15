@@ -51,7 +51,7 @@ function update() {
         }
 
         const promises = await Promise.all([
-            update_cn(current.CN.version, current.CN,cdnAddr),
+            update_cn(current.CN.version, current.CN.cdnAddr),
             // update_en(current.EN.version),
             update_jp(current.JP.version),
             update_kr(current.KR.version, current.KR.cdnAddr),
