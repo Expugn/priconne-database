@@ -13,6 +13,9 @@ Updating is done automatically through GitHub Actions. Updates will be checked e
     - <https://twitter.com/priconne_en/status/1652477875331932161>
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_en.db)
 - Japan (`master_jp.db`)
+  - As of `10053000`, database table and column names are obfuscated
+    - Use `10052900` for the last known readable database
+      - [Download `10052900`](https://github.com/Expugn/priconne-database/raw/cbe012cf3e6a88ba20ce92099762eb3ea2b971e7/master_jp.db)
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_jp.db)
 - Korea (`master_kr.db`)
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_kr.db)
