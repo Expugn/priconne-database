@@ -228,6 +228,7 @@ function download_jp(version, hash) {
     /*
         priconne-jp database notes
         - masterdata is encrypted, needs Coneshell_call to decrypt.
+        - 04/01/2024 - Coneshell_call no longer needed? Format seems to have changed to Unity3D file
     */
     return new Promise(async function (resolve) {
         if (!CHANGED.JP) {
@@ -284,9 +285,18 @@ function download_jp(version, hash) {
                             stream.on('finish', () => {
                                 // CONVERT CDB TO DB
                                 exec(`${__dirname}/vendor/coneshell/Coneshell_call.exe -cdb ${name_cdb} ${name}`, (error, stdout, stderr) => {
-                                    if (error) throw error;
+                                    if (error) {
+                                        // 04/01/2024 - try deserializing instead
+                                        const { PythonShell } = require('python-shell');
+                                        PythonShell.run('src/deserialize.py', { args: ["JP", name_cdb, name] }, function(err) {
+                                            if (err) throw err;
+                                            console.log(`[download_jp] DOWNLOADED AND CONVERTED DATABASE (DESERIALIZE) [${latest_hash}] ; SAVED AS ${name}`);
+                                            resolve({success: true, hash: latest_hash});
+                                        });
+                                        return;
+                                    }
                                     if (stderr) throw stderr;
-                                    console.log(`[download_jp] DOWNLOADED AND CONVERTED DATABASE [${latest_hash}] ; SAVED AS ${name}`);
+                                    console.log(`[download_jp] DOWNLOADED AND CONVERTED DATABASE (CONESHELL) [${latest_hash}] ; SAVED AS ${name}`);
                                     resolve({success: true, hash: latest_hash});
                                 });
                             });
