@@ -229,6 +229,7 @@ function download_jp(version, hash) {
         priconne-jp database notes
         - masterdata is encrypted, needs Coneshell_call to decrypt.
         - 04/01/2024 - Coneshell_call no longer needed? Format seems to have changed to Unity3D file, or not idk
+        - 04/06/2024 - nevermind about 04/01/2024's note, still needs Coneshell_call.
     */
     return new Promise(async function (resolve) {
         if (!CHANGED.JP) {
@@ -275,7 +276,8 @@ function download_jp(version, hash) {
                 res.on('end', () => {
                     const b = bundle.split(',');
                     // 04/01/2024 - latest hash moved from b[1] to b[2]
-                    const latest_hash = b[2];
+                    // 04/04/2024 - latest hash reverted back to b[1], still needs Coneshell_call
+                    const latest_hash = b[1];
 
                     if (latest_hash !== hash) {
                         console.log("[download_jp] DATABASE CHANGES FOUND! DOWNLOADING...");
