@@ -277,7 +277,8 @@ function download_jp(version, hash) {
                     const b = bundle.split(',');
                     // 04/01/2024 - latest hash moved from b[1] to b[2]
                     // 04/04/2024 - latest hash reverted back to b[1], still needs Coneshell_call
-                    const latest_hash = b[1];
+                    // 04/13/2024 - latest hash moved to b[2] again, idk
+                    const latest_hash = (b[2] === "every") ? b[1] : b[2];
 
                     if (latest_hash !== hash) {
                         console.log("[download_jp] DATABASE CHANGES FOUND! DOWNLOADING...");
