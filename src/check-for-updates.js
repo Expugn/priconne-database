@@ -369,7 +369,7 @@ function update_tw(version = SETTING.DEFAULT_TRUTH_VERSION.TW) {
             // FIND THE NEW TRUTH VERSION
             // let guess = Math.floor(version / 10000) * 10000; // old version, resume from last known truth version
             let guess = 0; // new version, starting from scratch to prevent errors
-            for (const delta of [10000, 1000, 100, 10, 1]) {
+            for (const delta of [1000000, 100000, 10000, 1000, 100, 10, 1]) {
                 guess = await find_latest(guess, delta);
             }
             version = guess;
@@ -392,13 +392,20 @@ function update_tw(version = SETTING.DEFAULT_TRUTH_VERSION.TW) {
                         }
 
                         if (delta !== 1) {
-                            // try guess + 1
-                            guess_str = to_string(temp + 1);
-                            log_guess(guess_str);
-                            res = await request_https(SETTING.HOST.TW, get_path(guess_str));
-                            if (res.statusCode === 200) {
+                            // try guess + 1 -> ... -> guess + 5
+                            let i, success = false;
+                            for (i = 1 ; i < 5 ; i++) {
+                                guess_str = to_string(temp + i);
+                                log_guess(guess_str);
+                                res = await request_https(SETTING.HOST.TW, get_path(guess_str));
+                                if (res.statusCode === 200) {
+                                    success = true;
+                                    break;
+                                }
+                            }
+                            if (success) {
                                 log_success(guess_str);
-                                guess = temp;
+                                guess = i;
                                 continue;
                             }
                         }
