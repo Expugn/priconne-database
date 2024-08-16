@@ -508,7 +508,8 @@ function download_tw(version, hash) {
                 });
                 res.on('end', () => {
                     const b = bundle.split(',');
-                    const latest_hash = b[1];
+                    // 08/15/2024 (well, not specifically today but a while ago) - latest hash moved from b[1] to b[2]
+                    const latest_hash = (b[2] === "tutorial0") ? b[1] : b[2];
                     if (latest_hash !== hash) {
                         console.log("[download_tw] DATABASE CHANGES FOUND! DOWNLOADING...");
                         diff.TW = [hash, latest_hash];
