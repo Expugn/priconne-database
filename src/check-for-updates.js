@@ -89,12 +89,12 @@ function update() {
         if (current.KR.version !== result.KR.version || current.KR.cdnAddr !== result.KR.cdnAddr) {
             changed.KR = true;
         }
-        if (current.TH.version !== result.TH.version) {
-            changed.TH = true;
-        }
-        // if (current.TW.version !== result.TW.version) {
-        //     changed.TW = true;
+        // if (current.TH.version !== result.TH.version) {
+        //     changed.TH = true;
         // }
+        if (current.TW.version !== result.TW.version) {
+            changed.TW = true;
+        }
 
         const is_changed = Object.keys(changed).length > 0;
         if (is_changed) {

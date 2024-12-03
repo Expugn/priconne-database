@@ -44,7 +44,7 @@ function download() {
             // download_en(current.EN.version, current.EN.hash),
             download_jp(current.JP.version, current.JP.hash),
             download_kr(current.KR.version, current.KR.cdnAddr, current.KR.hash),
-            download_th(current.TH.version, current.TH.hash),
+            // download_th(current.TH.version, current.TH.hash),
             download_tw(current.TW.version, current.TW.hash),
         ]);
 
@@ -53,8 +53,8 @@ function download() {
             // EN: promises[1],
             JP: promises[1],
             KR: promises[2],
-            TH: promises[3],
-            TW: promises[4],
+            // TH: promises[3],
+            TW: promises[3],
         };
 
         // update hashes in version file
@@ -70,7 +70,7 @@ function download() {
         //     && fs.existsSync(`${SETTING.FILE_NAME.EN}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.JP}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.KR}.db`)
-            && fs.existsSync(`${SETTING.FILE_NAME.TH}.db`)
+        //     && fs.existsSync(`${SETTING.FILE_NAME.TH}.db`)
             && fs.existsSync(`${SETTING.FILE_NAME.TW}.db`));
     });
 }
@@ -389,6 +389,7 @@ function download_th(version, hash) {
         priconne-th database notes
         - masterdata is not encrypted, does not need deserialization.
         - the database is served straight up.
+        - this will no longer work, priconne-th has shut down their servers as of December 4th 2024: <https://princessconnect.i3play.com/news/view?content=notice&id=MjAyNDEwMTcxNDI1MTY>
     */
     return new Promise(async function (resolve) {
         if (!CHANGED.TH) {
