@@ -27,7 +27,10 @@ Updating is done automatically through GitHub Actions. Updates will be checked e
     - Use `00180024` for the last known readable database
       - [Download `00180024`](https://github.com/Expugn/priconne-database/raw/c55a2de6a973f98fd1486808779272a279f89458/master_tw.db)
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_tw.db)
-- Thailand (`master_th.db`)
+- ~~Thailand~~ (`master_th.db`)
+  - Thailand server has ended service as of `December 4, 2024`.
+    - End-of-Service announced on `November 4, 2024`
+    - <https://princessconnect.i3play.com/news/view?content=notice&id=MjAyNDEwMTcxNDI1MTY>
   - [Download](https://raw.githubusercontent.com/Expugn/priconne-database/master/master_th.db)
 
 ## Workflow

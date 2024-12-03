@@ -55,7 +55,7 @@ function update() {
             // update_en(current.EN.version),
             update_jp(current.JP.version),
             update_kr(current.KR.version, current.KR.cdnAddr),
-            update_th(current.TH.version),
+            // update_th(current.TH.version),
             update_tw(current.TW.version),
         ]);
         console.log("[update] UPDATE CHECK COMPLETE", promises);
@@ -67,8 +67,8 @@ function update() {
             // EN: promises[1],
             JP: promises[1],
             KR: promises[2],
-            TH: promises[3],
-            TW: promises[4],
+            // TH: promises[3],
+            TW: promises[3],
         };
         if (current.CN.version !== result.CN.version || current.CN.cdnAddr !== result.CN.cdnAddr) {
             changed.CN = true;
@@ -92,9 +92,9 @@ function update() {
         if (current.TH.version !== result.TH.version) {
             changed.TH = true;
         }
-        if (current.TW.version !== result.TW.version) {
-            changed.TW = true;
-        }
+        // if (current.TW.version !== result.TW.version) {
+        //     changed.TW = true;
+        // }
 
         const is_changed = Object.keys(changed).length > 0;
         if (is_changed) {
@@ -117,10 +117,10 @@ function update() {
                 version: result.KR.version,
                 cdnAddr: result.KR.cdnAddr,
             };
-            current.TH = {
-                ...current.TH,
-                version: result.TH.version,
-            };
+            // current.TH = {
+            //     ...current.TH,
+            //     version: result.TH.version,
+            // };
             current.TW = {
                 ...current.TW,
                 version: result.TW.version,
@@ -326,6 +326,7 @@ function update_th(version = SETTING.DEFAULT_TRUTH_VERSION.TH) {
         - instead of "Jpn" it uses "Tha" (similar to KR)
         - versions can jump to the next 1000th version whenever
         - certain 1000 versions arent guaranteed to exist, e.g. 10000400 -> 10002000... 10001000 did not exist
+        - this will no longer work, priconne-th has shut down their servers as of December 4th 2024: <https://princessconnect.i3play.com/news/view?content=notice&id=MjAyNDEwMTcxNDI1MTY>
     */
     return new Promise(async function (resolve) {
         console.log('[update_th] CHECKING FOR DATABASE UPDATES...');
