@@ -339,15 +339,31 @@ function download_kr(version, cdnAddr, hash) {
         let bundle = "";
 
         // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
-        http.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`, (res) => {
-            res.on('data', function(chunk) {
-                manifest_assetmanifest += Buffer.from(chunk).toString();
-            });
-            res.on('end', () => {
-                masterdata_path = find_masterdata(manifest_assetmanifest);
-                dl();
-            });
-        }).end();
+        // December 11, 2024 - Seems that CDN URL can start with HTTPS now... add a check for that
+        if (cdnAddr.startsWith("https://")) {
+            // handle https://pcr-cdn.sesisoft.com/
+            https.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`, (res) => {
+                res.on('data', function(chunk) {
+                    manifest_assetmanifest += Buffer.from(chunk).toString();
+                });
+                res.on('end', () => {
+                    masterdata_path = find_masterdata(manifest_assetmanifest);
+                    dl();
+                });
+            }).end();
+        } else {
+            // handle http://patch.pcr.kakaogames.com/live/
+            http.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`, (res) => {
+                res.on('data', function(chunk) {
+                    manifest_assetmanifest += Buffer.from(chunk).toString();
+                });
+                res.on('end', () => {
+                    masterdata_path = find_masterdata(manifest_assetmanifest);
+                    dl();
+                });
+            }).end();
+        }
+        
 
         // called after masterdata path is found
         function dl() {
