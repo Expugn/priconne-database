@@ -340,34 +340,21 @@ function download_kr(version, cdnAddr, hash) {
 
         // get masterdata path first (we don't know if it's masterdata, masterdata2, etc)
         // December 11, 2024 - Seems that CDN URL can start with HTTPS now... add a check for that
-        if (cdnAddr.startsWith("https://")) {
-            // handle https://pcr-cdn.sesisoft.com/
-            https.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`, (res) => {
-                res.on('data', function(chunk) {
-                    manifest_assetmanifest += Buffer.from(chunk).toString();
-                });
-                res.on('end', () => {
-                    masterdata_path = find_masterdata(manifest_assetmanifest);
-                    dl();
-                });
-            }).end();
-        } else {
-            // handle http://patch.pcr.kakaogames.com/live/
-            http.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`, (res) => {
-                res.on('data', function(chunk) {
-                    manifest_assetmanifest += Buffer.from(chunk).toString();
-                });
-                res.on('end', () => {
-                    masterdata_path = find_masterdata(manifest_assetmanifest);
-                    dl();
-                });
-            }).end();
-        }
-        
+        // handle http://patch.pcr.kakaogames.com/live/ and https://pcr-cdn.sesisoft.com/
+        const http_module = cdnAddr.startsWith("https://") ? https : http;
+        http_module.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/manifest/manifest_assetmanifest`, (res) => {
+            res.on('data', function(chunk) {
+                manifest_assetmanifest += Buffer.from(chunk).toString();
+            });
+            res.on('end', () => {
+                masterdata_path = find_masterdata(manifest_assetmanifest);
+                dl();
+            });
+        }).end();
 
         // called after masterdata path is found
         function dl() {
-            http.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/${masterdata_path}`, (res) => {
+            http_module.get(`${cdnAddr}dl/Resources/${version}/Kor/AssetBundles/iOS/${masterdata_path}`, (res) => {
                 res.on('data', function(chunk) {
                     bundle += Buffer.from(chunk).toString();
                 });
@@ -378,7 +365,7 @@ function download_kr(version, cdnAddr, hash) {
                         console.log("[download_kr] DATABASE CHANGES FOUND! DOWNLOADING...");
                         diff.KR = [hash, latest_hash];
                         const file = fs.createWriteStream(name_unity3d);
-                        http.get(`${cdnAddr}dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
+                        http_module.get(`${cdnAddr}dl/pool/AssetBundles/${latest_hash.substring(0, 2)}/${latest_hash}`, function(response) {
                             const stream = response.pipe(file);
                             stream.on('finish', () => {
                                 const { PythonShell } = require('python-shell');
