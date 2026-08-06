@@ -1,0 +1,119 @@
+name: 更新国服、台服与日服可读数据库
+
+on:
+  schedule:
+    - cron: "15 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 即使版本未变也重新生成
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-priconne-databases
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 取出仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装数据库解包支持
+        run: python -m pip install -r requirements.txt
+
+      - name: 恢复上一版本与参考库缓存
+        id: database-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache
+          key: priconne-db-state-${{ hashFiles('data/version_cn.json', 'data/version_tw.json', 'data/version_jp.json') }}
+          restore-keys: |
+            priconne-db-state-
+
+      - name: 更新台服
+        shell: bash
+        run: |
+          force=""
+          if [[ "${{ inputs.force }}" == "true" ]]; then
+            force="--force"
+          fi
+          python scripts/priconne_unhash.py update $force \
+            --rainbow rainbow_tw.json
+
+      - name: 更新日服
+        shell: bash
+        run: |
+          force=""
+          if [[ "${{ inputs.force }}" == "true" ]]; then
+            force="--force"
+          fi
+          python scripts/priconne_unhash.py update-jp $force
+
+      - name: 更新国服（无需账号）
+        shell: bash
+        run: |
+          force=""
+          if [[ "${{ inputs.force }}" == "true" ]]; then
+            force="--force"
+          fi
+          python scripts/priconne_unhash.py update-cn $force \
+            --rainbow rainbow_cn.json
+
+      - name: 校验三个数据库
+        shell: bash
+        run: |
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          for filename in (
+              "master_cn_unhash.db",
+              "master_tw_unhash.db",
+              "master_jp_unhash.db",
+          ):
+              path = Path("data") / filename
+              assert path.exists() and path.stat().st_size > 1_000_000, path
+              with sqlite3.connect(path) as db:
+                  assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+          PY
+
+      - name: 保存本次版本供下次恢复
+        if: steps.database-cache.outputs.cache-matched-key != format('priconne-db-state-{0}', hashFiles('data/version_cn.json', 'data/version_tw.json', 'data/version_jp.json'))
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: priconne-db-state-${{ hashFiles('data/version_cn.json', 'data/version_tw.json', 'data/version_jp.json') }}
+
+      - name: 提交新版本
+        shell: bash
+        run: |
+          if [[ -z "$(git status --porcelain -- data)" ]]; then
+            echo "没有数据库更新"
+            exit 0
+          fi
+          git config user.name "priconne-db-bot"
+          git config user.email "priconne-db-bot@users.noreply.github.com"
+          git add -- \
+            data/master_cn_unhash.db data/mapping_cn.json data/version_cn.json \
+            data/REPORT_cn.md \
+            data/master_tw_unhash.db data/mapping_tw.json data/version_tw.json \
+            data/REPORT.md data/REPORT_tw.md \
+            data/master_jp_unhash.db data/mapping_jp.json data/version_jp.json \
+            data/REPORT_jp.md
+          tw_version="$(python -c 'import json; print(json.load(open("data/version_tw.json"))["version"])')"
+          jp_version="$(python -c 'import json; print(json.load(open("data/version_jp.json"))["version"])')"
+          cn_version="$(python -c 'import json; print(json.load(open("data/version_cn.json"))["version"])')"
+          git commit -m "data: 更新国服 ${cn_version} / 台服 ${tw_version} / 日服 ${jp_version}"
+          git push

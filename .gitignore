@@ -1,8 +1,13 @@
-# See http://help.github.com/ignore-files/ for more about ignoring files.
-
-# dependencies
-__pycache__
+# dependencies and Python caches
 /node_modules
+__pycache__/
+*.pyc
+
+# local recovery caches and fixtures
+.cache/
+_fixtures/
+_upstream/
+work/
 
 # IDEs and editors
 .idea
@@ -13,11 +18,11 @@ __pycache__
 .settings/
 *.sublime-workspace
 
-# System Files
+# system files
 .DS_Store
 Thumbs.db
 
-# Database Scraps
+# database scraps
 changed.json
 *.cdb
 *.db.br

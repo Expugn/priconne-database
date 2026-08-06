@@ -1,0 +1,17 @@
+{
+  "app_version": "11.7.2",
+  "asset_md5": "92f78a332512683593ef24406ad428db",
+  "cdn": "https://l1-prod-patch-gzlj.bilibiligame.net/client_ob_771/",
+  "hash": "92f78a332512683593ef24406ad428db",
+  "manifest_version": "202607312107",
+  "platform": "iOS",
+  "storage_hash": "3f33b27b9f8294ee",
+  "version": "202607312107",
+  "version_sources": {
+    "current-manifest": "202607312107",
+    "current-output": "202607312107",
+    "estertion": "202509131303",
+    "expugn": "202607231828",
+    "official-android": "202607312055"
+  }
+}

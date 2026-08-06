@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "source": "https://roboninon.win/db/download?compressed=true",
+  "strategy": "external-readable-database",
+  "summary": {
+    "columns_mapped": 10605,
+    "columns_total": 10605,
+    "tables_mapped": 950,
+    "tables_total": 950
+  },
+  "tables": {},
+  "upstream": {
+    "hash": "dcba3ae4d435eb72",
+    "version": 10070110
+  }
+}
