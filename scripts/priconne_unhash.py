@@ -16,6 +16,7 @@ import os
 import re
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import urllib.request
@@ -30,6 +31,13 @@ from typing import Any, Iterable
 JP_EXTERNAL_URL = "https://roboninon.win/db/download?compressed=true"
 JP_IOS_CDN = "https://prd-priconne-redive.akamaized.net/"
 JP_IOS_BASELINE_VERSION = 10070110
+JP_CONESHELL = (
+    Path(__file__).parents[1]
+    / "src"
+    / "vendor"
+    / "coneshell"
+    / "Coneshell_call.exe"
+)
 TW_IOS_CDN = "https://img-pc.so-net.tw/"
 TW_IOS_BASELINE_VERSION = 600009
 CN_STATUS_URL = (
@@ -248,6 +256,81 @@ def validate_database(path: Path, require_readable: bool = False) -> dict[str, i
         "columns": columns,
         "readable_tables": readable_tables,
     }
+
+
+def decrypt_jp_cdb(
+    source: Path,
+    destination: Path,
+    executable: Path = JP_CONESHELL,
+) -> dict[str, int]:
+    """Decrypt an official JP CDB with the Windows helper used by upstream."""
+
+    if os.name != "nt":
+        raise RuntimeError("JP CDB decryption requires a Windows runner")
+    executable = executable.resolve()
+    if not executable.exists():
+        raise RuntimeError(f"Coneshell executable is missing: {executable}")
+    if not source.exists():
+        raise RuntimeError(f"official JP CDB is missing: {source}")
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    temporary.unlink(missing_ok=True)
+    try:
+        result = subprocess.run(
+            [str(executable), "-cdb", str(source.resolve()), str(temporary)],
+            cwd=executable.parent,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=180,
+            check=False,
+        )
+        if result.returncode:
+            detail = (result.stderr or result.stdout).strip()
+            raise RuntimeError(
+                f"Coneshell failed with exit code {result.returncode}: {detail}"
+            )
+        stats = validate_database(temporary)
+        os.replace(temporary, destination)
+        return stats
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def download_jp_readable_reference(
+    url: str,
+    archive: Path,
+    database: Path,
+    official_version: int,
+) -> dict[str, int]:
+    """Download and validate the versioned readable JP reference."""
+
+    headers = download(url, archive)
+    disposition = next(
+        (
+            value
+            for key, value in headers.items()
+            if key.lower() == "content-disposition"
+        ),
+        "",
+    )
+    match = re.search(r"PriconneMasterDatabase_(\d+)\.db\.br", disposition)
+    if not match:
+        raise RuntimeError(
+            "roboninon did not provide a versioned .db.br filename: "
+            f"{disposition!r}"
+        )
+    external_version = int(match.group(1))
+    if external_version != official_version:
+        raise RuntimeError(
+            f"roboninon JP version {external_version} does not match official "
+            f"iOS version {official_version}"
+        )
+    decompress_brotli(archive, database)
+    return validate_database(database, require_readable=True)
 
 
 def cn_request_headers(app_version: str) -> dict[str, str]:
@@ -1335,7 +1418,9 @@ def update_jp_command(args: argparse.Namespace) -> int:
     output_db = output_dir / "master_jp_unhash.db"
     version_path = output_dir / "version_jp.json"
     report_path = cache_dir / "REPORT_jp.md"
-    readable_cache = cache_dir / "master_jp_latest_readable.db"
+    mapping_path = cache_dir / "mapping_jp.json"
+    raw_db = cache_dir / "master_jp_latest_raw.db"
+    previous_raw_db = cache_dir / "master_jp_previous_raw.db"
     current_version = json_load(version_path, {}) or {}
     build = discover_jp_build(current_version)
     official_version = int(build["version"])
@@ -1346,73 +1431,116 @@ def update_jp_command(args: argparse.Namespace) -> int:
         "storage_hash": build["storage_hash"],
         "platform": "iOS",
         "cdn": build["cdn"],
-        "source": "official-ios-cdn+roboninon-readable",
+        "source": "official-ios-cdn+coneshell",
+        "name_reference_priority": ["roboninon", "jp-previous-readable"],
     }
     if (
         not args.force
         and current_version.get("version") == official_version
         and current_version.get("hash") == build["storage_hash"]
         and output_db.exists()
+        and raw_db.exists()
+        and mapping_path.exists()
     ):
-        if not readable_cache.exists():
-            shutil.copy2(output_db, readable_cache)
         log(f"JP database is already current: {official_version}")
         return 0
 
     official_asset = cache_dir / "master_jp_official.cdb"
-    log(f"Downloading JP database {official_version} from official iOS CDN")
-    download_standard_ios_asset(build, official_asset)
+    expected_md5 = str(build["md5"])
+    expected_size = int(build["size"])
+    cached_asset_ok = (
+        official_asset.exists()
+        and official_asset.stat().st_size == expected_size
+        and hashlib.md5(official_asset.read_bytes()).hexdigest() == expected_md5
+    )
+    if cached_asset_ok:
+        log(f"Using cached official JP CDB {official_version}")
+    else:
+        log(f"Downloading JP database {official_version} from official iOS CDN")
+        download_standard_ios_asset(build, official_asset)
 
-    # The official JP master is an encrypted CDB. Use roboninon only as the
-    # readable/dehashed representation of the already verified official build.
+    # roboninon has the highest priority for both name recovery and fallback.
     external_archive = cache_dir / "jp_external.db.br"
     external_database = cache_dir / "jp_external.db"
+    external_stats: dict[str, int] | None = None
+    external_error: Exception | None = None
     try:
-        log("Downloading the readable JP representation from roboninon")
-        headers = download(args.external_url, external_archive)
-        disposition = next(
-            (
-                value
-                for key, value in headers.items()
-                if key.lower() == "content-disposition"
-            ),
-            "",
+        log("Downloading the highest-priority JP name reference from roboninon")
+        external_stats = download_jp_readable_reference(
+            args.external_url,
+            external_archive,
+            external_database,
+            official_version,
         )
-        match = re.search(r"PriconneMasterDatabase_(\d+)\.db\.br", disposition)
-        if not match:
-            raise RuntimeError(
-                f"external JP source did not provide a versioned .db.br filename: "
-                f"{disposition!r}"
-            )
-        external_version = int(match.group(1))
-        if external_version != official_version:
-            raise RuntimeError(
-                f"roboninon JP version {external_version} does not match official "
-                f"iOS version {official_version}"
-            )
+    except Exception as error:
+        external_error = error
+        log(f"JP roboninon reference unavailable or invalid: {error}")
 
-        decompress_brotli(external_archive, external_database)
-        stats = validate_database(external_database, require_readable=True)
-        temporary_output = output_db.with_suffix(output_db.suffix + ".tmp")
-        shutil.copy2(external_database, temporary_output)
-        os.replace(temporary_output, output_db)
-        shutil.copy2(external_database, readable_cache)
+    previous_mapping_path = mapping_path if mapping_path.exists() else None
+    if raw_db.exists() and previous_mapping_path is not None:
+        shutil.copy2(raw_db, previous_raw_db)
+    usable_previous_raw = (
+        previous_raw_db
+        if previous_raw_db.exists() and previous_mapping_path is not None
+        else None
+    )
+    candidate_raw = cache_dir / "master_jp_candidate_raw.db"
 
+    try:
+        log("Decrypting the official JP CDB with Coneshell")
+        decrypt_jp_cdb(official_asset, candidate_raw, args.coneshell)
+
+        references: list[tuple[str, Path, int]] = []
+        if external_stats is not None:
+            references.append(("roboninon", external_database, 260))
+        if output_db.exists():
+            references.append(("jp-previous-readable", output_db, 130))
+
+        log("Resolving JP names (roboninon first, previous JP database second)")
+        mapping = resolve_mapping(
+            target_db=candidate_raw,
+            rainbow_paths=[],
+            references=references,
+            previous_db=usable_previous_raw,
+            previous_mapping_path=previous_mapping_path,
+            source_metadata=source_metadata,
+        )
+        rename = deobfuscate_database(candidate_raw, output_db, mapping)
+        validate_database(output_db)
+        os.replace(candidate_raw, raw_db)
+        json_write(mapping_path, mapping)
         json_write(version_path, source_metadata)
-        report = build_external_report(
-            "JP", source_metadata, stats, args.external_url
-        )
+        report = build_report(mapping, rename, region="JP")
         report_path.write_text(report, encoding="utf-8")
         log(report)
         return 0
-    except Exception as error:
-        log(f"JP external source unavailable or invalid: {error}")
+    except Exception as official_error:
+        candidate_raw.unlink(missing_ok=True)
+        log(f"Official JP CDB recovery failed: {official_error}")
+
+        if external_stats is not None:
+            fallback_metadata = {
+                **source_metadata,
+                "source": "official-ios-cdn+roboninon-fallback",
+            }
+            temporary_output = output_db.with_suffix(output_db.suffix + ".tmp")
+            shutil.copy2(external_database, temporary_output)
+            os.replace(temporary_output, output_db)
+            json_write(version_path, fallback_metadata)
+            report = build_external_report(
+                "JP", fallback_metadata, external_stats, args.external_url
+            )
+            report_path.write_text(report, encoding="utf-8")
+            log(report)
+            return 0
+
         if output_db.exists():
-            if not readable_cache.exists():
-                shutil.copy2(output_db, readable_cache)
             log("Keeping the previous readable JP database")
             return 0
-        raise RuntimeError("no readable JP database is available") from error
+        raise RuntimeError(
+            "no readable JP database is available; "
+            f"roboninon error: {external_error}"
+        ) from official_error
 
 
 def update_cn_command(args: argparse.Namespace) -> int:
@@ -1566,11 +1694,12 @@ def make_parser() -> argparse.ArgumentParser:
     update.set_defaults(function=update_command)
 
     update_jp = subparsers.add_parser(
-        "update-jp", help="update JP from the readable external source"
+        "update-jp", help="update JP from the official iOS CDB"
     )
     update_jp.add_argument("--output-dir", type=Path, default=Path("data"))
     update_jp.add_argument("--cache-dir", type=Path, default=Path(".cache"))
     update_jp.add_argument("--external-url", default=JP_EXTERNAL_URL)
+    update_jp.add_argument("--coneshell", type=Path, default=JP_CONESHELL)
     update_jp.add_argument("--force", action="store_true")
     update_jp.set_defaults(function=update_jp_command)
 

@@ -18,10 +18,11 @@
 日服：
 
 1. 从日服官方 iOS CDN 主动发现最新版本，下载官方 CDB 并校验 MD5 与文件大小。
-2. 官方 CDB 仍是加密格式，因此使用 [roboninon.win 可读数据库](https://roboninon.win/db/download?compressed=true) 提供同版本的可读反哈希结果；只有版本与官方 iOS 清单一致才会接受。
-3. roboninon 不可用、版本滞后或文件损坏时，保留上一版可读日服数据库，等待下次重试。
+2. 在 Windows Action 中用上游采用的 Coneshell 解密官方 CDB，得到当前版本的原始 SQLite 数据库。
+3. 名称恢复优先使用 [roboninon.win 可读数据库](https://roboninon.win/db/download?compressed=true)，只有版本与官方 iOS 清单一致才会接受；上一版日服数据库作为第二参考迁移名称。
+4. 官方 CDB 解密或反哈希失败时，优先直接使用已验证同版本的 roboninon 数据库；roboninon 也不可用时才保留上一版日服数据库。
 
-国服和台服数据库直接来自各自官方 iOS CDN；日服数据库来自 roboninon.win，并由日服官方 iOS CDN 验证版本。项目不读取其他数据库仓库。
+三服版本和原始资源均从各自官方 iOS CDN 获取。日服的 roboninon 仅用于最高优先级的名称参考和故障兜底；项目不读取其他数据库仓库。
 
 ## 自动更新
 
@@ -49,7 +50,7 @@
 
 ## 本地运行
 
-需要 Python 3.11 或更高版本。日服压缩源需要 Brotli：
+需要 Python 3.11 或更高版本。日服压缩源需要 Brotli，官方日服 CDB 解密需要 Windows：
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -75,5 +76,7 @@ python scripts/priconne_unhash.py update `
 程序只应用彩虹表直接命中、同服上一版本数据匹配或参考库一致支持的名称。不能可靠判断的表和字段会保留原哈希名，不会强行猜测。外部日服库的版本必须在日服官方 iOS CDN 中真实存在，所有输出都会执行 SQLite `integrity_check`。
 
 ## 致谢与说明
+
+日服 CDB 解密沿用上游收录的 `Coneshell_call.exe`（EAirPeter、esterTion）与 Cygames `coneshell.dll`，出处和说明见 `src/vendor/coneshell/README.md`。
 
 本项目只用于资料研究与数据保存；游戏及数据版权归原权利人所有。

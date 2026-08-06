@@ -138,6 +138,61 @@ class UnhashTests(unittest.TestCase):
                 columns = [row[1] for row in db.execute('PRAGMA table_info("unit_data")')]
                 self.assertEqual(columns, ["unit_id", "name"])
 
+    def test_higher_priority_reference_wins(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            preferred = root / "preferred.db"
+            previous = root / "previous.db"
+            target = root / "target.db"
+            make_database(preferred, "preferred_name", ("id", "name"))
+            make_database(previous, "previous_name", ("id", "name"))
+            make_database(target, "v1_" + "a" * 64, ("b" * 64, "c" * 64))
+
+            mapping = MODULE.resolve_mapping(
+                target,
+                [],
+                [
+                    ("roboninon", preferred, 260),
+                    ("jp-previous-readable", previous, 130),
+                ],
+            )
+
+            resolved = mapping["tables"]["v1_" + "a" * 64]
+            self.assertEqual(resolved["name"], "preferred_name")
+            self.assertEqual(resolved["sources"], ["roboninon"])
+
+    def test_decrypt_jp_cdb_invokes_coneshell_and_validates_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "master.cdb"
+            destination = root / "master.db"
+            executable = root / "Coneshell_call.exe"
+            source.write_bytes(b"encrypted")
+            executable.write_bytes(b"test")
+
+            def fake_run(command, **kwargs):
+                make_database(
+                    Path(command[-1]),
+                    "v1_" + "d" * 64,
+                    ("e" * 64, "f" * 64),
+                )
+                return type(
+                    "Result",
+                    (),
+                    {"returncode": 0, "stdout": "", "stderr": ""},
+                )()
+
+            with (
+                patch.object(MODULE.os, "name", "nt"),
+                patch.object(MODULE.subprocess, "run", side_effect=fake_run) as run,
+            ):
+                stats = MODULE.decrypt_jp_cdb(source, destination, executable)
+
+            self.assertTrue(destination.exists())
+            self.assertEqual(stats["tables"], 1)
+            command = run.call_args.args[0]
+            self.assertEqual(command[1], "-cdb")
+
     def test_rainbow_direct_match(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

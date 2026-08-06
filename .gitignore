@@ -1,6 +1,8 @@
 # Python caches
 __pycache__/
 *.pyc
+*.db-shm
+*.db-wal
 
 # local recovery caches and fixtures
 .cache/
