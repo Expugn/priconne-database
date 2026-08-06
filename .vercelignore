@@ -1,0 +1,5 @@
+.cache/
+data/*.db
+rainbow_*.json
+scripts/
+tests/

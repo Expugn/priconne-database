@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download and deobfuscate the Princess Connect Taiwan master database.
+"""Download and deobfuscate Princess Connect CN, TW, and JP master databases.
 
 The game changes every hashed SQLite identifier when the schema is rebuilt.
 This tool transfers known names from readable historical databases, a previous
@@ -27,17 +27,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-UPSTREAM_REPOSITORY = "Expugn/priconne-database"
-UPSTREAM_VERSION_URL = (
-    "https://raw.githubusercontent.com/Expugn/priconne-database/master/version.json"
-)
-UPSTREAM_TW_DB_URL = (
-    "https://raw.githubusercontent.com/Expugn/priconne-database/master/master_tw.db"
-)
-UPSTREAM_JP_DB_URL = (
-    "https://raw.githubusercontent.com/Expugn/priconne-database/master/master_jp.db"
-)
 JP_EXTERNAL_URL = "https://roboninon.win/db/download?compressed=true"
+JP_IOS_CDN = "https://prd-priconne-redive.akamaized.net/"
+JP_IOS_BASELINE_VERSION = 10070110
+TW_IOS_CDN = "https://img-pc.so-net.tw/"
+TW_IOS_BASELINE_VERSION = 600009
 CN_STATUS_URL = (
     "https://l3-prod-all-gs-gzlj.bilibiligame.net/"
     "source_ini/get_maintenance_status?format=json"
@@ -47,28 +41,6 @@ CN_RES_KEY = "ab00a0a6dd915a052a2ef7fd649083e5"
 CN_DEFAULT_APP_VERSION = "11.7.2"
 CN_IOS_APPSTORE_URL = "https://itunes.apple.com/lookup?id=1423525213&country=cn"
 CN_IOS_BASELINE_VERSION = "202607312107"
-
-# Immutable, last-known-readable databases documented by the upstream project.
-DEFAULT_REFERENCES = (
-    (
-        "tw-00180024",
-        "https://raw.githubusercontent.com/Expugn/priconne-database/"
-        "c55a2de6a973f98fd1486808779272a279f89458/master_tw.db",
-        80,
-    ),
-    (
-        "kr-10049000",
-        "https://raw.githubusercontent.com/Expugn/priconne-database/"
-        "3f64e986b647847fb3c833f03905b7e5adcfb0db/master_kr.db",
-        45,
-    ),
-    (
-        "jp-10052900",
-        "https://raw.githubusercontent.com/Expugn/priconne-database/"
-        "cbe012cf3e6a88ba20ce92099762eb3ea2b971e7/master_jp.db",
-        35,
-    ),
-)
 
 HASHED_TABLE_PREFIX = "v1_"
 MAPPING_FORMAT = 1
@@ -392,6 +364,112 @@ def probe_cn_build(
             except Exception:
                 continue
     return None
+
+
+def probe_ios_build(
+    version: int | str,
+    cdn: str,
+    version_width: int = 0,
+) -> dict[str, Any] | None:
+    version_text = str(version).zfill(version_width)
+    root = (
+        f"{normalize_cdn(cdn)}dl/Resources/{version_text}/"
+        "Jpn/AssetBundles/iOS/"
+    )
+    try:
+        manifest = fetch_text(root + "manifest/manifest_assetmanifest")
+        master_path = next(
+            line.split(",", 1)[0]
+            for line in manifest.splitlines()
+            if "masterdata" in line.lower()
+            and "masterdata_assetmanifest_s" not in line.lower()
+        )
+        asset_manifest = fetch_text(root + master_path)
+        asset_line = next(
+            line
+            for line in asset_manifest.splitlines()
+            if "masterdata_master" in line.lower()
+        )
+        return {
+            "version": version_text,
+            "platform": "iOS",
+            "cdn": normalize_cdn(cdn),
+            **parse_cn_asset_line(asset_line),
+        }
+    except Exception:
+        return None
+
+
+def discover_tw_build(current_version: dict[str, Any]) -> dict[str, Any]:
+    latest = int(current_version.get("version") or TW_IOS_BASELINE_VERSION)
+    build = probe_ios_build(latest, TW_IOS_CDN, version_width=8)
+    if build is None and latest != TW_IOS_BASELINE_VERSION:
+        latest = TW_IOS_BASELINE_VERSION
+        build = probe_ios_build(latest, TW_IOS_CDN, version_width=8)
+    if build is None:
+        raise RuntimeError("TW iOS baseline manifest is unavailable")
+
+    # TW versions normally advance by one, but occasionally jump to a new
+    # decimal boundary. Probe only the official iOS CDN around those boundaries.
+    for delta in (1_000_000, 100_000, 10_000, 1_000, 100, 10, 1):
+        while True:
+            base = ((latest // delta) + 1) * delta if delta > 1 else latest + 1
+            found = None
+            for offset in range(5 if delta > 1 else 1):
+                candidate = base + offset
+                candidate_build = probe_ios_build(
+                    candidate, TW_IOS_CDN, version_width=8
+                )
+                if candidate_build is not None:
+                    found = candidate_build
+                    latest = candidate
+                    break
+            if found is None:
+                break
+            build = found
+    return build
+
+
+def discover_jp_build(current_version: dict[str, Any]) -> dict[str, Any]:
+    latest = int(current_version.get("version") or JP_IOS_BASELINE_VERSION)
+    build = probe_ios_build(latest, JP_IOS_CDN)
+    if build is None and latest != JP_IOS_BASELINE_VERSION:
+        latest = JP_IOS_BASELINE_VERSION
+        build = probe_ios_build(latest, JP_IOS_CDN)
+    if build is None:
+        raise RuntimeError("JP iOS baseline manifest is unavailable")
+
+    misses = 0
+    candidate = latest + 10
+    while misses < 20:
+        candidate_build = probe_ios_build(candidate, JP_IOS_CDN)
+        if candidate_build is not None:
+            build = candidate_build
+            latest = candidate
+            misses = 0
+        else:
+            misses += 1
+        candidate += 10
+    return build
+
+
+def download_standard_ios_asset(build: dict[str, Any], destination: Path) -> None:
+    storage_hash = build["storage_hash"]
+    asset_url = (
+        f"{build['cdn']}dl/pool/AssetBundles/"
+        f"{storage_hash[:2]}/{storage_hash}"
+    )
+    download(asset_url, destination)
+    actual_md5 = hashlib.md5(destination.read_bytes()).hexdigest()
+    if actual_md5 != build["md5"]:
+        raise RuntimeError(
+            f"iOS bundle MD5 mismatch: expected {build['md5']}, got {actual_md5}"
+        )
+    if destination.stat().st_size != int(build["size"]):
+        raise RuntimeError(
+            f"iOS bundle size mismatch: expected {build['size']}, "
+            f"got {destination.stat().st_size}"
+        )
 
 
 def discover_cn_build(
@@ -827,7 +905,7 @@ def resolve_mapping(
     references: list[tuple[str, Path, int]],
     previous_db: Path | None = None,
     previous_mapping_path: Path | None = None,
-    upstream: dict[str, Any] | None = None,
+    source_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     target_tables = inspect_database(target_db)
     target_by_name = {table.name: table for table in target_tables}
@@ -975,7 +1053,7 @@ def resolve_mapping(
     total_columns = sum(len(table.columns) for table in target_tables)
     return {
         "format": MAPPING_FORMAT,
-        "upstream": upstream or {},
+        "source": source_metadata or {},
         "rainbows": rainbow_fingerprints(normalized_rainbow_paths),
         "summary": {
             "tables_total": len(target_tables),
@@ -1113,13 +1191,13 @@ def build_report(
     summary = mapping["summary"]
     table_percent = 100 * summary["tables_mapped"] / max(summary["tables_total"], 1)
     column_percent = 100 * summary["columns_mapped"] / max(summary["columns_total"], 1)
-    upstream = mapping.get("upstream", {})
+    source = mapping.get("source", {})
     return "\n".join(
         (
             f"# {region} 数据库自动反混淆报告",
             "",
-            f"- 上游 TruthVersion：`{upstream.get('version', 'unknown')}`",
-            f"- 上游资源哈希：`{upstream.get('hash', 'unknown')}`",
+            f"- 来源版本：`{source.get('version', 'unknown')}`",
+            f"- 官方资源哈希：`{source.get('hash', 'unknown')}`",
             f"- 表名覆盖：{summary['tables_mapped']} / {summary['tables_total']} "
             f"({table_percent:.1f}%)",
             f"- 字段名覆盖：{summary['columns_mapped']} / {summary['columns_total']} "
@@ -1136,7 +1214,7 @@ def build_report(
 
 def build_external_report(
     region: str,
-    upstream: dict[str, Any],
+    source: dict[str, Any],
     stats: dict[str, int],
     source_url: str,
 ) -> str:
@@ -1144,8 +1222,8 @@ def build_external_report(
         (
             f"# {region} 数据库自动恢复报告",
             "",
-            f"- 上游 TruthVersion：`{upstream.get('version', 'unknown')}`",
-            f"- 上游资源哈希：`{upstream.get('hash', 'unknown')}`",
+            f"- 来源版本：`{source.get('version', 'unknown')}`",
+            f"- 官方资源哈希：`{source.get('hash', 'unknown')}`",
             f"- 恢复来源：`{source_url}`",
             f"- 可读表：{stats['readable_tables']} / {stats['tables']}",
             f"- 字段总数：{stats['columns']}",
@@ -1172,8 +1250,6 @@ def update_command(args: argparse.Namespace) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    version_document = fetch_json(args.version_url)
-    upstream = version_document["TW"]
     current_version_path = output_dir / "version_tw.json"
     current_version = json_load(current_version_path, {}) or {}
     mapping_path = cache_dir / "mapping_tw.json"
@@ -1181,24 +1257,36 @@ def update_command(args: argparse.Namespace) -> int:
     rainbow_paths = args.rainbow or [Path("rainbow_tw.json")]
     resolved_rainbows = [path.resolve() for path in rainbow_paths]
     current_rainbows = rainbow_fingerprints(resolved_rainbows)
+    output_db = output_dir / "master_tw_unhash.db"
+    build = discover_tw_build(current_version)
+    source_metadata = {
+        "version": int(build["version"]),
+        "hash": build["storage_hash"],
+        "asset_md5": build["md5"],
+        "storage_hash": build["storage_hash"],
+        "platform": "iOS",
+        "cdn": build["cdn"],
+    }
     raw_db = cache_dir / "master_tw_latest.db"
     previous_db = cache_dir / "master_tw_previous.db"
     if (
         not args.force
-        and current_version.get("hash") == upstream.get("hash")
+        and current_version.get("hash") == build["storage_hash"]
         and current_mapping.get("rainbows") == current_rainbows
-        and (output_dir / "master_tw_unhash.db").exists()
+        and output_db.exists()
     ):
-        if not raw_db.exists():
-            log("Database is current; seeding the raw snapshot cache")
-            download(args.database_url, raw_db, expected_sqlite=True)
-        log(f"Database is already current: {upstream['hash']}")
+        log(f"TW database is already current: {build['version']}")
         return 0
 
     if raw_db.exists():
         shutil.copy2(raw_db, previous_db)
-    log(f"Downloading TW database {upstream['version']} ({upstream['hash']})")
-    download(args.database_url, raw_db, expected_sqlite=True)
+    bundle_path = cache_dir / "master_tw_latest.unity3d"
+    candidate_db = cache_dir / "master_tw_candidate.db"
+    log(f"Downloading TW database {build['version']} from official iOS CDN")
+    download_standard_ios_asset(build, bundle_path)
+    extract_unity_database(bundle_path, candidate_db)
+    validate_database(candidate_db)
+    os.replace(candidate_db, raw_db)
 
     previous_mapping_path = mapping_path if mapping_path.exists() else None
     usable_previous_db = (
@@ -1206,30 +1294,10 @@ def update_command(args: argparse.Namespace) -> int:
         if previous_db.exists() and previous_mapping_path is not None
         else None
     )
-    rainbow_sources, _rainbow_by_name = load_rainbows(resolved_rainbows)
-    target_table_names = {table.name for table in inspect_database(raw_db)}
-    direct_rainbow_hits = sum(
-        1
-        for target_name in target_table_names
-        if any(target_name in rainbow for _label, rainbow in rainbow_sources)
-    )
-
-    # Only download immutable bootstrap references if neither a current rainbow
-    # nor the same-region previous snapshot can recover this build.
-    reference_specs: list[tuple[str, str, int]] = []
-    if direct_rainbow_hits:
-        log(
-            f"Using rainbow tables first ({direct_rainbow_hits}/"
-            f"{len(target_table_names)} direct table hits)"
-        )
-    elif usable_previous_db:
-        log("No direct rainbow hits; using the previous TW version first")
-    else:
-        log("No current rainbow or previous TW snapshot; using bootstrap references")
-        reference_specs.extend(DEFAULT_REFERENCES)
-    reference_specs.extend(args.reference or [])
     references: list[tuple[str, Path, int]] = []
-    for label, location, priority in reference_specs:
+    if output_db.exists():
+        references.append(("tw-previous-readable", output_db, 130))
+    for label, location, priority in args.reference or []:
         if location.startswith(("https://", "http://")):
             reference_path = cache_dir / "references" / f"{label}.db"
             if not reference_path.exists():
@@ -1246,13 +1314,12 @@ def update_command(args: argparse.Namespace) -> int:
         references=references,
         previous_db=usable_previous_db,
         previous_mapping_path=previous_mapping_path,
-        upstream=upstream,
+        source_metadata=source_metadata,
     )
     json_write(mapping_path, mapping)
 
-    output_db = output_dir / "master_tw_unhash.db"
     rename = deobfuscate_database(raw_db, output_db, mapping)
-    json_write(current_version_path, upstream)
+    json_write(current_version_path, source_metadata)
     report = build_report(mapping, rename)
     (cache_dir / "REPORT_tw.md").write_text(report, encoding="utf-8")
     log(report)
@@ -1265,30 +1332,43 @@ def update_jp_command(args: argparse.Namespace) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    upstream = fetch_json(args.version_url)["JP"]
     output_db = output_dir / "master_jp_unhash.db"
-    mapping_path = cache_dir / "mapping_jp.json"
     version_path = output_dir / "version_jp.json"
     report_path = cache_dir / "REPORT_jp.md"
     readable_cache = cache_dir / "master_jp_latest_readable.db"
     current_version = json_load(version_path, {}) or {}
-
+    build = discover_jp_build(current_version)
+    official_version = int(build["version"])
+    source_metadata = {
+        "version": official_version,
+        "hash": build["storage_hash"],
+        "asset_md5": build["md5"],
+        "storage_hash": build["storage_hash"],
+        "platform": "iOS",
+        "cdn": build["cdn"],
+        "source": "official-ios-cdn+roboninon-readable",
+    }
     if (
         not args.force
-        and current_version.get("hash") == upstream.get("hash")
+        and current_version.get("version") == official_version
+        and current_version.get("hash") == build["storage_hash"]
         and output_db.exists()
     ):
         if not readable_cache.exists():
             shutil.copy2(output_db, readable_cache)
-        log(f"JP database is already current: {upstream['hash']}")
+        log(f"JP database is already current: {official_version}")
         return 0
 
-    # JP has no maintained rainbow table. Prefer the external already-readable
-    # database, and verify its filename version before accepting it.
+    official_asset = cache_dir / "master_jp_official.cdb"
+    log(f"Downloading JP database {official_version} from official iOS CDN")
+    download_standard_ios_asset(build, official_asset)
+
+    # The official JP master is an encrypted CDB. Use roboninon only as the
+    # readable/dehashed representation of the already verified official build.
     external_archive = cache_dir / "jp_external.db.br"
     external_database = cache_dir / "jp_external.db"
     try:
-        log("Downloading readable JP database from external source")
+        log("Downloading the readable JP representation from roboninon")
         headers = download(args.external_url, external_archive)
         disposition = next(
             (
@@ -1305,11 +1385,12 @@ def update_jp_command(args: argparse.Namespace) -> int:
                 f"{disposition!r}"
             )
         external_version = int(match.group(1))
-        if external_version != int(upstream["version"]):
+        if external_version != official_version:
             raise RuntimeError(
-                f"external JP version {external_version} does not match "
-                f"upstream {upstream['version']}"
+                f"roboninon JP version {external_version} does not match official "
+                f"iOS version {official_version}"
             )
+
         decompress_brotli(external_archive, external_database)
         stats = validate_database(external_database, require_readable=True)
         temporary_output = output_db.with_suffix(output_db.suffix + ".tmp")
@@ -1317,63 +1398,21 @@ def update_jp_command(args: argparse.Namespace) -> int:
         os.replace(temporary_output, output_db)
         shutil.copy2(external_database, readable_cache)
 
-        mapping = {
-            "format": MAPPING_FORMAT,
-            "strategy": "external-readable-database",
-            "source": args.external_url,
-            "upstream": upstream,
-            "summary": {
-                "tables_total": stats["tables"],
-                "tables_mapped": stats["readable_tables"],
-                "columns_total": stats["columns"],
-                "columns_mapped": stats["columns"],
-            },
-            "tables": {},
-        }
-        json_write(mapping_path, mapping)
-        json_write(version_path, upstream)
-        report = build_external_report("JP", upstream, stats, args.external_url)
+        json_write(version_path, source_metadata)
+        report = build_external_report(
+            "JP", source_metadata, stats, args.external_url
+        )
         report_path.write_text(report, encoding="utf-8")
         log(report)
         return 0
     except Exception as error:
         log(f"JP external source unavailable or invalid: {error}")
-        log("Falling back to the previous JP version")
-
-    raw_db = cache_dir / "master_jp_latest.db"
-    previous_raw_db = cache_dir / "master_jp_previous.db"
-    if raw_db.exists():
-        shutil.copy2(raw_db, previous_raw_db)
-    download(args.database_url, raw_db, expected_sqlite=True)
-
-    references: list[tuple[str, Path, int]] = []
-    if readable_cache.exists():
-        references.append(("jp-previous-readable", readable_cache, 130))
-    else:
-        label, url, priority = next(
-            item for item in DEFAULT_REFERENCES if item[0].startswith("jp-")
-        )
-        reference_path = cache_dir / "references" / f"{label}.db"
-        if not reference_path.exists():
-            download(url, reference_path, expected_sqlite=True)
-        references.append((label, reference_path, priority))
-
-    previous_mapping_path = mapping_path if mapping_path.exists() else None
-    mapping = resolve_mapping(
-        target_db=raw_db,
-        rainbow_paths=[],
-        references=references,
-        previous_db=previous_raw_db if previous_raw_db.exists() else None,
-        previous_mapping_path=previous_mapping_path,
-        upstream=upstream,
-    )
-    json_write(mapping_path, mapping)
-    rename = deobfuscate_database(raw_db, output_db, mapping)
-    json_write(version_path, upstream)
-    report = build_report(mapping, rename, region="JP")
-    report_path.write_text(report, encoding="utf-8")
-    log(report)
-    return 0
+        if output_db.exists():
+            if not readable_cache.exists():
+                shutil.copy2(output_db, readable_cache)
+            log("Keeping the previous readable JP database")
+            return 0
+        raise RuntimeError("no readable JP database is available") from error
 
 
 def update_cn_command(args: argparse.Namespace) -> int:
@@ -1395,7 +1434,7 @@ def update_cn_command(args: argparse.Namespace) -> int:
     build, version_sources, app_version = discover_cn_build(
         display_version=args.display_version
     )
-    upstream = {
+    source_metadata = {
         "version": build["version"],
         "manifest_version": build["version"],
         "hash": build["md5"],
@@ -1469,11 +1508,11 @@ def update_cn_command(args: argparse.Namespace) -> int:
         references=references,
         previous_db=previous_raw_db if previous_raw_db.exists() else None,
         previous_mapping_path=previous_mapping_path,
-        upstream=upstream,
+        source_metadata=source_metadata,
     )
     json_write(mapping_path, mapping)
     rename = deobfuscate_database(raw_db, output_db, mapping)
-    json_write(version_path, upstream)
+    json_write(version_path, source_metadata)
     report = build_report(mapping, rename, region="CN")
     report_path.write_text(report, encoding="utf-8")
     log(report)
@@ -1517,8 +1556,6 @@ def make_parser() -> argparse.ArgumentParser:
         default=None,
         help="rainbow JSON in priority order (repeatable)",
     )
-    update.add_argument("--version-url", default=UPSTREAM_VERSION_URL)
-    update.add_argument("--database-url", default=UPSTREAM_TW_DB_URL)
     update.add_argument("--force", action="store_true")
     update.add_argument(
         "--reference",
@@ -1533,8 +1570,6 @@ def make_parser() -> argparse.ArgumentParser:
     )
     update_jp.add_argument("--output-dir", type=Path, default=Path("data"))
     update_jp.add_argument("--cache-dir", type=Path, default=Path(".cache"))
-    update_jp.add_argument("--version-url", default=UPSTREAM_VERSION_URL)
-    update_jp.add_argument("--database-url", default=UPSTREAM_JP_DB_URL)
     update_jp.add_argument("--external-url", default=JP_EXTERNAL_URL)
     update_jp.add_argument("--force", action="store_true")
     update_jp.set_defaults(function=update_jp_command)

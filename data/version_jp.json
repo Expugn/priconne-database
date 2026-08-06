@@ -1,4 +1,9 @@
 {
+  "asset_md5": "eb1d239dca1ceba1f1a7f8239adb6939",
+  "cdn": "https://prd-priconne-redive.akamaized.net/",
   "hash": "dcba3ae4d435eb72",
+  "platform": "iOS",
+  "source": "official-ios-cdn+roboninon-readable",
+  "storage_hash": "dcba3ae4d435eb72",
   "version": 10070110
 }

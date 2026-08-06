@@ -89,6 +89,30 @@ class UnhashTests(unittest.TestCase):
         )
         self.assertEqual(legacy["storage_hash"], legacy["md5"])
 
+    def test_jp_discovery_uses_only_official_ios_candidates(self):
+        observed = []
+
+        def probe(version, cdn, version_width=0):
+            observed.append((version, cdn, version_width))
+            if version in (10070110, 10070120):
+                return {
+                    "version": str(version),
+                    "platform": "iOS",
+                    "cdn": cdn,
+                    "path": "a/masterdata_master_0003.cdb",
+                    "md5": "a" * 32,
+                    "storage_hash": "b" * 16,
+                    "size": 123,
+                }
+            return None
+
+        with patch.object(MODULE, "probe_ios_build", side_effect=probe):
+            build = MODULE.discover_jp_build({"version": 10070110})
+
+        self.assertEqual(build["version"], "10070120")
+        self.assertTrue(observed)
+        self.assertTrue(all(cdn == MODULE.JP_IOS_CDN for _, cdn, _ in observed))
+
     def test_reference_names_are_transferred_and_applied(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

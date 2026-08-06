@@ -89,12 +89,8 @@ jobs:
                   assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
           PY
 
-      - name: 保存本次版本供下次恢复
-        if: steps.database-cache.outputs.cache-matched-key != format('priconne-db-state-{0}', hashFiles('data/version_cn.json', 'data/version_tw.json', 'data/version_jp.json'))
-        uses: actions/cache/save@v4
-        with:
-          path: .cache
-          key: priconne-db-state-${{ hashFiles('data/version_cn.json', 'data/version_tw.json', 'data/version_jp.json') }}
+      - name: 准备历史版本索引
+        run: python scripts/update_history.py
 
       - name: 提交新版本
         shell: bash
@@ -103,6 +99,7 @@ jobs:
             data/master_cn_unhash.db data/version_cn.json
             data/master_tw_unhash.db data/version_tw.json
             data/master_jp_unhash.db data/version_jp.json
+            data/history.json
           )
           if [[ -z "$(git status --porcelain -- "${outputs[@]}")" ]]; then
             echo "没有数据库更新"
@@ -116,3 +113,28 @@ jobs:
           cn_version="$(python -c 'import json; print(json.load(open("data/version_cn.json"))["version"])')"
           git commit -m "data: 更新国服 ${cn_version} / 台服 ${tw_version} / 日服 ${jp_version}"
           git push
+
+      - name: 归档历史数据库到 Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while IFS=$'\t' read -r tag filename region version date; do
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "历史版本已存在：$tag"
+              continue
+            fi
+            gh release create "$tag" \
+              ".cache/releases/$filename" \
+              --target "$(git rev-parse HEAD)" \
+              --title "${region^^} 数据库 ${version}（${date}）" \
+              --notes "${region^^} 可读数据库；版本 ${version}，归档日期 ${date}。"
+          done < <(python -c 'import json; [print(e["tag"], e["filename"], e["region"], e["version"], e["date"], sep="\t") for e in json.load(open(".cache/release_candidates.json", encoding="utf-8"))]')
+          rm -rf .cache/releases
+
+      - name: 保存本次版本供下次恢复
+        if: steps.database-cache.outputs.cache-matched-key != format('priconne-db-state-{0}', hashFiles('data/version_cn.json', 'data/version_tw.json', 'data/version_jp.json'))
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: priconne-db-state-${{ hashFiles('data/version_cn.json', 'data/version_tw.json', 'data/version_jp.json') }}
