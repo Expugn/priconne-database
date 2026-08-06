@@ -45,10 +45,8 @@ CN_STATUS_URL = (
 CN_DEFAULT_CDN = "l1-prod-patch-gzlj.bilibiligame.net/client_ob_771/"
 CN_RES_KEY = "ab00a0a6dd915a052a2ef7fd649083e5"
 CN_DEFAULT_APP_VERSION = "11.7.2"
-CC004_CONSTANTS_URL = (
-    "https://raw.githubusercontent.com/cc004/autopcr/main/autopcr/constants.py"
-)
-CN_ESTERTION_VERSION_URL = "https://redive.estertion.win/last_version_cn.json"
+CN_IOS_APPSTORE_URL = "https://itunes.apple.com/lookup?id=1423525213&country=cn"
+CN_IOS_BASELINE_VERSION = "202607312107"
 
 # Immutable, last-known-readable databases documented by the upstream project.
 DEFAULT_REFERENCES = (
@@ -283,30 +281,25 @@ def validate_database(path: Path, require_readable: bool = False) -> dict[str, i
 def cn_request_headers(app_version: str) -> dict[str, str]:
     return {
         "Accept-Encoding": "gzip",
-        "User-Agent": (
-            "Dalvik/2.1.0 (Linux, U, Android 5.1.1, "
-            "PCRT00 Build/LMY48Z)"
-        ),
+        "User-Agent": "princessconnectredive/1 CFNetwork/1568 Darwin/24.0.0",
         "X-Unity-Version": "2021.3.20f1c1",
         "APP-VER": app_version,
         "BATTLE-LOGIC-VERSION": "4",
         "BUNDLE-VER": "",
-        "DEVICE": "2",
-        "DEVICE-NAME": "OPPO PCRT00",
+        "DEVICE": "1",
+        "DEVICE-NAME": "iPhone",
         "EXCEL-VER": "1.0.0",
-        "GRAPHICS-DEVICE-NAME": "Adreno (TM) 640",
+        "GRAPHICS-DEVICE-NAME": "Apple GPU",
         "IP-ADDRESS": "10.0.2.15",
         "KEYCHAIN": "",
         "LOCALE": "CN",
-        "PLATFORM-OS-VERSION": (
-            "Android OS 5.1.1 / API-22 (LMY48Z/rel.se.infra.20200612.100533)"
-        ),
+        "PLATFORM-OS-VERSION": "iPhone OS 18.0",
         "REGION-CODE": "",
         "RES-KEY": CN_RES_KEY,
         "RES-VER": "10002200",
         "SHORT-UDID": "0",
-        "PLATFORM": "2",
-        "PLATFORM-ID": "2",
+        "PLATFORM": "1",
+        "PLATFORM-ID": "1",
         "CHANNEL-ID": "1",
         "DEVICE-ID": hashlib.md5(b"autopcr").hexdigest(),
         "Content-Type": "application/json",
@@ -315,12 +308,12 @@ def cn_request_headers(app_version: str) -> dict[str, str]:
 
 def fetch_cn_app_version() -> str:
     try:
-        source = fetch_text(CC004_CONSTANTS_URL)
-        match = re.search(r"['\"]APP-VER['\"]\s*:\s*['\"]([^'\"]+)", source)
-        if match:
-            return match.group(1)
+        payload = fetch_json(CN_IOS_APPSTORE_URL)
+        results = payload.get("results") or []
+        if results and results[0].get("version"):
+            return str(results[0]["version"])
     except Exception as error:
-        log(f"Unable to read cc004/autopcr APP-VER; using fallback: {error}")
+        log(f"Unable to read the CN App Store version; using fallback: {error}")
     return CN_DEFAULT_APP_VERSION
 
 
@@ -375,7 +368,7 @@ def parse_cn_asset_line(line: str) -> dict[str, Any]:
 def probe_cn_build(
     version: str,
     resources: list[str],
-    platforms: tuple[str, ...] = ("Android", "iOS"),
+    platforms: tuple[str, ...] = ("iOS",),
 ) -> dict[str, Any] | None:
     for resource in resources:
         cdn = normalize_cdn(resource)
@@ -402,7 +395,6 @@ def probe_cn_build(
 
 
 def discover_cn_build(
-    current_version: dict[str, Any],
     display_version: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, str], str]:
     app_version = fetch_cn_app_version()
@@ -412,50 +404,29 @@ def discover_cn_build(
     try:
         status, app_version = fetch_cn_status(app_version)
         official_version = str(status["manifest_ver"])
-        sources["official-android"] = official_version
+        sources["official-ios"] = official_version
         resources = list(status["resource"])
     except Exception as error:
         log(f"Official CN version query unavailable: {error}")
 
-    optional_sources = (
+    ios_candidates = (
         ("user-override", display_version),
-        ("current-output", current_version.get("version")),
-        ("current-manifest", current_version.get("manifest_version")),
-        ("official-android", official_version),
+        ("official-ios", official_version),
+        ("ios-baseline", CN_IOS_BASELINE_VERSION),
     )
     candidates: list[str] = []
-    for label, value in optional_sources:
+    for label, value in ios_candidates:
         if value:
             value = str(value)
             sources[label] = value
             candidates.append(value)
 
-    try:
-        value = str(fetch_json(UPSTREAM_VERSION_URL)["CN"]["version"])
-        sources["expugn"] = value
-        candidates.append(value)
-    except Exception as error:
-        log(f"Expugn CN version unavailable: {error}")
-    try:
-        value = str(fetch_json(CN_ESTERTION_VERSION_URL)["TruthVersion"])
-        sources["estertion"] = value
-        candidates.append(value)
-    except Exception as error:
-        log(f"Estertion CN version unavailable: {error}")
-
     for candidate in sorted(set(candidates), key=int, reverse=True):
-        platforms = (
-            ("Android", "iOS")
-            if candidate == official_version
-            else ("iOS", "Android")
-        )
-        build = probe_cn_build(candidate, resources, platforms)
+        build = probe_cn_build(candidate, resources, ("iOS",))
         if build:
             build["version_sources"] = dict(sorted(sources.items()))
             return build, sources, app_version
-    raise RuntimeError(
-        "no CN version source points to a downloadable Android/iOS manifest"
-    )
+    raise RuntimeError("no CN iOS candidate points to a downloadable manifest")
 
 
 def extract_unity_database(bundle_path: Path, database_path: Path) -> None:
@@ -1430,8 +1401,7 @@ def update_cn_command(args: argparse.Namespace) -> int:
     current_rainbows = rainbow_fingerprints(resolved_rainbows)
 
     build, version_sources, app_version = discover_cn_build(
-        current_version,
-        display_version=args.display_version,
+        display_version=args.display_version
     )
     upstream = {
         "version": build["version"],
@@ -1591,7 +1561,7 @@ def make_parser() -> argparse.ArgumentParser:
     )
     update_cn.add_argument(
         "--display-version",
-        help="additional Android/iOS manifest version candidate",
+        help="additional iOS manifest version candidate",
     )
     update_cn.add_argument("--force", action="store_true")
     update_cn.add_argument(

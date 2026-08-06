@@ -20082,11 +20082,8 @@
     "storage_hash": "3f33b27b9f8294ee",
     "version": "202607312107",
     "version_sources": {
-      "current-manifest": "202607312107",
-      "current-output": "202607312107",
-      "estertion": "202509131303",
-      "expugn": "202607231828",
-      "official-android": "202607312055"
+      "ios-baseline": "202607312107",
+      "official-ios": "202607312055"
     }
   }
 }

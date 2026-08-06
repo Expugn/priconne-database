@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from contextlib import closing
 from pathlib import Path
+from unittest.mock import patch
 
 
 MODULE_PATH = Path(__file__).parents[1] / "scripts" / "priconne_unhash.py"
@@ -31,6 +32,47 @@ def make_database(path: Path, table_name: str, column_names: tuple[str, str]) ->
 
 
 class UnhashTests(unittest.TestCase):
+    def test_cn_headers_and_discovery_are_ios_only(self):
+        headers = MODULE.cn_request_headers("11.7.2")
+        self.assertEqual(headers["PLATFORM"], "1")
+        self.assertEqual(headers["PLATFORM-ID"], "1")
+        self.assertEqual(headers["DEVICE"], "1")
+
+        observed = []
+
+        def probe(version, resources, platforms=("iOS",)):
+            observed.append((version, tuple(resources), platforms))
+            if version != MODULE.CN_IOS_BASELINE_VERSION:
+                return None
+            return {
+                "version": version,
+                "platform": "iOS",
+                "cdn": "https://ios.example/",
+                "path": "a/masterdata_master.unity3d",
+                "md5": "a" * 32,
+                "storage_hash": "b" * 16,
+                "size": 123,
+            }
+
+        with (
+            patch.object(MODULE, "fetch_cn_app_version", return_value="11.7.2"),
+            patch.object(
+                MODULE,
+                "fetch_cn_status",
+                return_value=(
+                    {"manifest_ver": "202607312055", "resource": ["ios.example/"]},
+                    "11.7.2",
+                ),
+            ),
+            patch.object(MODULE, "probe_cn_build", side_effect=probe),
+        ):
+            build, sources, _ = MODULE.discover_cn_build()
+
+        self.assertEqual(build["version"], MODULE.CN_IOS_BASELINE_VERSION)
+        self.assertEqual(set(sources), {"official-ios", "ios-baseline"})
+        self.assertTrue(observed)
+        self.assertTrue(all(platforms == ("iOS",) for _, _, platforms in observed))
+
     def test_cn_manifest_uses_storage_hash_when_present(self):
         current = MODULE.parse_cn_asset_line(
             "a/masterdata_master.unity3d,"

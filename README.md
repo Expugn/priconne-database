@@ -6,8 +6,8 @@
 
 国服：
 
-1. 使用 [cc004/autopcr](https://github.com/cc004/autopcr) 的公开请求格式匿名查询官方版本，不执行账号登录。
-2. 同时检查 Android/iOS 官方 CDN 清单，并与 Expugn、Estertion 和当前产物记录交叉核验；只接受实际可下载且 MD5、文件大小、SQLite 完整性均正确的版本。
+1. 从国服官方 App Store 取得 iOS 客户端版本，再匿名查询官方 CDN 地址与清单版本，不执行账号登录。
+2. 只检查 iOS 官方 CDN 清单；候选版本仅包含官方响应、内置的 `202607312107` iOS 基线和手动传入的版本，不读取 Expugn、Estertion 或当前产物进行版本交叉核验。只接受实际可下载且 MD5、文件大小、SQLite 完整性均正确的版本。
 3. 只使用你提供的 `rainbow_cn.json`；未覆盖部分使用仓库中已提交的国服上一版可读库，再使用缓存的上一版原库与映射迁移。
 
 台服：
@@ -22,7 +22,7 @@
 2. 外部源不可用、版本滞后或文件损坏时，用缓存的日服上一版本恢复。
 3. 缓存也不存在时，使用上游最后可读日服版本引导恢复。
 
-游戏 CDN 数据库和版本信息来自 [Expugn/priconne-database](https://github.com/Expugn/priconne-database)。
+国服数据库直接来自官方 iOS CDN。台服和日服的版本信息及历史引导库来自 [Expugn/priconne-database](https://github.com/Expugn/priconne-database)。
 
 ## 自动更新
 
@@ -49,7 +49,7 @@ python scripts/priconne_unhash.py update `
 python scripts/priconne_unhash.py update-jp
 ```
 
-`rainbow_cn.json` 仅用于国服，不会参与台服恢复。首次生成时如果知道一个比公开版本源更新的官方清单版本，可额外传入 `--display-version 202607312107`；之后程序会把当前产物也作为版本和恢复参考。
+`rainbow_cn.json` 仅用于国服，不会参与台服恢复。国服内置 `202607312107` 作为最低 iOS 清单基线；如果知道更新的官方 iOS 清单版本，可额外传入 `--display-version`。当前产物不会参与版本发现，只会作为同服上一版可读库帮助恢复名称。
 
 如果台服还有自己的可读参考库，可以重复传入：
 
@@ -67,4 +67,4 @@ python scripts/priconne_unhash.py update `
 
 ## 致谢与说明
 
-抓取流程和历史数据库来自 [Expugn/priconne-database](https://github.com/Expugn/priconne-database)。本项目只用于资料研究与数据保存；游戏及数据版权归原权利人所有。
+台服、日服抓取流程和历史数据库参考 [Expugn/priconne-database](https://github.com/Expugn/priconne-database)；国服仅访问官方 iOS 来源。本项目只用于资料研究与数据保存；游戏及数据版权归原权利人所有。
