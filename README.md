@@ -31,9 +31,9 @@
 生成文件：
 
 - `data/master_cn_unhash.db`、`data/master_tw_unhash.db`、`data/master_jp_unhash.db`：可读 SQLite 数据库。
-- `data/mapping_cn.json`、`data/mapping_tw.json`、`data/mapping_jp.json`：恢复方式和名称映射。
 - `data/version_cn.json`、`data/version_tw.json`、`data/version_jp.json`：上游版本和资源哈希。
-- `data/REPORT_cn.md`、`data/REPORT_tw.md`、`data/REPORT_jp.md`：恢复来源、覆盖率和完整性检查结果。
+
+名称映射和恢复报告只保存在 GitHub Actions 的 `.cache` 内部状态中，不提交到仓库。映射用于把上一版已确认名称迁移到新哈希，并记录彩虹表命中结果；数据库使用者不需要下载它。
 
 无需配置个人访问令牌；工作流使用仓库自带的 `GITHUB_TOKEN`。请在仓库设置中确认 Actions 的 Workflow permissions 为 **Read and write permissions**。
 

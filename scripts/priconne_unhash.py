@@ -1176,7 +1176,7 @@ def update_command(args: argparse.Namespace) -> int:
     upstream = version_document["TW"]
     current_version_path = output_dir / "version_tw.json"
     current_version = json_load(current_version_path, {}) or {}
-    mapping_path = output_dir / "mapping_tw.json"
+    mapping_path = cache_dir / "mapping_tw.json"
     current_mapping = json_load(mapping_path, {}) or {}
     rainbow_paths = args.rainbow or [Path("rainbow_tw.json")]
     resolved_rainbows = [path.resolve() for path in rainbow_paths]
@@ -1189,10 +1189,6 @@ def update_command(args: argparse.Namespace) -> int:
         and current_mapping.get("rainbows") == current_rainbows
         and (output_dir / "master_tw_unhash.db").exists()
     ):
-        legacy_report = output_dir / "REPORT.md"
-        region_report = output_dir / "REPORT_tw.md"
-        if not region_report.exists() and legacy_report.exists():
-            shutil.copy2(legacy_report, region_report)
         if not raw_db.exists():
             log("Database is current; seeding the raw snapshot cache")
             download(args.database_url, raw_db, expected_sqlite=True)
@@ -1257,13 +1253,9 @@ def update_command(args: argparse.Namespace) -> int:
     output_db = output_dir / "master_tw_unhash.db"
     rename = deobfuscate_database(raw_db, output_db, mapping)
     json_write(current_version_path, upstream)
-    (output_dir / "REPORT.md").write_text(
-        build_report(mapping, rename), encoding="utf-8"
-    )
-    (output_dir / "REPORT_tw.md").write_text(
-        build_report(mapping, rename), encoding="utf-8"
-    )
-    log(build_report(mapping, rename))
+    report = build_report(mapping, rename)
+    (cache_dir / "REPORT_tw.md").write_text(report, encoding="utf-8")
+    log(report)
     return 0
 
 
@@ -1275,9 +1267,9 @@ def update_jp_command(args: argparse.Namespace) -> int:
 
     upstream = fetch_json(args.version_url)["JP"]
     output_db = output_dir / "master_jp_unhash.db"
-    mapping_path = output_dir / "mapping_jp.json"
+    mapping_path = cache_dir / "mapping_jp.json"
     version_path = output_dir / "version_jp.json"
-    report_path = output_dir / "REPORT_jp.md"
+    report_path = cache_dir / "REPORT_jp.md"
     readable_cache = cache_dir / "master_jp_latest_readable.db"
     current_version = json_load(version_path, {}) or {}
 
@@ -1391,9 +1383,9 @@ def update_cn_command(args: argparse.Namespace) -> int:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     output_db = output_dir / "master_cn_unhash.db"
-    mapping_path = output_dir / "mapping_cn.json"
+    mapping_path = cache_dir / "mapping_cn.json"
     version_path = output_dir / "version_cn.json"
-    report_path = output_dir / "REPORT_cn.md"
+    report_path = cache_dir / "REPORT_cn.md"
     current_version = json_load(version_path, {}) or {}
     current_mapping = json_load(mapping_path, {}) or {}
     rainbow_paths = args.rainbow or [Path("rainbow_cn.json")]

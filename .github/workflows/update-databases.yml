@@ -99,19 +99,18 @@ jobs:
       - name: 提交新版本
         shell: bash
         run: |
-          if [[ -z "$(git status --porcelain -- data)" ]]; then
+          outputs=(
+            data/master_cn_unhash.db data/version_cn.json
+            data/master_tw_unhash.db data/version_tw.json
+            data/master_jp_unhash.db data/version_jp.json
+          )
+          if [[ -z "$(git status --porcelain -- "${outputs[@]}")" ]]; then
             echo "没有数据库更新"
             exit 0
           fi
           git config user.name "priconne-db-bot"
           git config user.email "priconne-db-bot@users.noreply.github.com"
-          git add -- \
-            data/master_cn_unhash.db data/mapping_cn.json data/version_cn.json \
-            data/REPORT_cn.md \
-            data/master_tw_unhash.db data/mapping_tw.json data/version_tw.json \
-            data/REPORT.md data/REPORT_tw.md \
-            data/master_jp_unhash.db data/mapping_jp.json data/version_jp.json \
-            data/REPORT_jp.md
+          git add -- "${outputs[@]}"
           tw_version="$(python -c 'import json; print(json.load(open("data/version_tw.json"))["version"])')"
           jp_version="$(python -c 'import json; print(json.load(open("data/version_jp.json"))["version"])')"
           cn_version="$(python -c 'import json; print(json.load(open("data/version_cn.json"))["version"])')"
