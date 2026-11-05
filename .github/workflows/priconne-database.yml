@@ -65,6 +65,8 @@ jobs:
         if: ${{ steps.check_for_updates.outputs.success == 'true' }}
         run: |
           git lfs install
+          git lfs trac "*.db"
+          git lfs migrate import --include="*.db"
           git config --global user.name "Expugn"
           git config --global user.email "Expugn@users.noreply.github.com"
           git add ./master_cn.db
@@ -79,7 +81,7 @@ jobs:
           This is an automated process. Issues may or may not have occured.
 
           ${{ steps.download_database.outputs.diff }}'
-          git push
+          git push --force-with-lease
         env:
           github_token: ${{ secrets.DEPLOY_ACCESS_TOKEN }}
           repository: ${{ github.repository }}
