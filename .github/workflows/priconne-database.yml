@@ -64,6 +64,7 @@ jobs:
       - name: Update files on Git
         if: ${{ steps.check_for_updates.outputs.success == 'true' }}
         run: |
+          git lfs install
           git config --global user.name "Expugn"
           git config --global user.email "Expugn@users.noreply.github.com"
           git add ./master_cn.db
